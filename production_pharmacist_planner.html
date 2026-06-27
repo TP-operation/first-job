@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Pharmacist Task Planner</title>
+    <!-- Tailwind CSS for Modern & Premium UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons for beautiful icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Sarabun', sans-serif;
+        }
+        /* Custom animation for critical tasks flashing */
+        @keyframes subtle-flash {
+            0%, 100% { background-color: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.5); }
+            50% { background-color: rgba(239, 68, 68, 0.03); border-color: rgba(239, 68, 68, 0.15); }
+        }
+        .critical-flash {
+            animation: subtle-flash 2.5s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
+    <!-- Top Navigation / Header -->
+    <header class="bg-indigo-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-white text-indigo-900 p-2 rounded-lg shadow-inner">
+                    <i data-lucide="pill" class="w-6 h-6 text-indigo-700"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-wide">Rx-Production Planner</h1>
+                    <p class="text-xs text-indigo-200">ระบบคิวงานเภสัชกรควบคุมการผลิตยาตามความสำคัญ (Google Drive Cloud & Local File Integration)</p>
+                </div>
+            </div>
+            
+            <!-- Time Simulator & Controls -->
+            <div class="flex flex-wrap items-center gap-3 bg-indigo-950 p-2 rounded-lg border border-indigo-700/50">
+                <div class="flex items-center gap-2 px-1">
+                    <span id="time-mode-dot" class="relative flex h-2.5 w-2.5">
+                        <span id="time-mode-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span id="time-mode-core" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <div class="text-right">
+                        <span id="time-mode-label" class="block text-[9px] text-emerald-300 uppercase font-bold tracking-wider">เวลาจริงปัจจุบัน</span>
+                        <span id="current-time-display" class="text-sm font-mono font-bold text-emerald-400">Loading...</span>
+                    </div>
+                </div>
+                <button onclick="advanceTime(4)" class="bg-indigo-800 hover:bg-indigo-700 text-xs px-2.5 py-1.5 rounded text-white flex items-center gap-1 transition-all" title="จำลองเดินเวลาล่วงหน้า 4 ชั่วโมง">
+                    <i data-lucide="fast-forward" class="w-3.5 h-3.5"></i> +4 ชม.
+                </button>
+                <button onclick="advanceTime(24)" class="bg-indigo-800 hover:bg-indigo-700 text-xs px-2.5 py-1.5 rounded text-white flex items-center gap-1 transition-all" title="จำลองเดินเวลาล่วงหน้า 1 วัน">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i> +1 วัน
+                </button>
+                <button onclick="syncToRealTime()" id="btn-reset-realtime" class="bg-slate-700 hover:bg-slate-600 text-xs px-2 py-1.5 rounded text-slate-200 transition-all hidden" title="ดึงเวลากลับสู่ปัจจุบันจริง">
+                    <i data-lucide="play" class="w-3.5 h-3.5 text-emerald-400 inline mr-1"></i>กลับสู่เวลาจริง
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+    <!-- Custom Confirmation Modal instead of browser confirm -->
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-sm w-full p-5 space-y-4">
+            <div class="flex items-center gap-2.5 text-amber-600">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                <h3 class="font-bold text-lg">ยืนยันการลบงาน?</h3>
+            </div>
+            <p class="text-sm text-slate-600">คุณต้องการลบแผนงานนี้อย่างถาวรใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้</p>
+            <div class="flex gap-2 justify-end">
+                <button id="confirm-cancel" class="bg-slate-100 hover:bg-slate-200 text-slate-600 py-1.5 px-3.5 rounded-lg text-xs font-semibold">ยกเลิก</button>
+                <button id="confirm-delete" class="bg-red-600 hover:bg-red-700 text-white py-1.5 px-3.5 rounded-lg text-xs font-semibold">ลบงานทันที</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Drive API Setup Modal -->
+    <div id="drive-setup-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl shadow-xl border border-indigo-100 max-w-md w-full p-6 space-y-4">
+            <div class="flex items-center gap-2.5 text-indigo-900">
+                <i data-lucide="settings-2" class="w-6 h-6 text-indigo-600"></i>
+                <h3 class="font-bold text-lg">ตั้งค่าข้อมูล Google Cloud API</h3>
+            </div>
+            <p class="text-xs text-slate-500 leading-relaxed">
+                การซิงก์ข้อมูลโดยตรงไปยัง Google Drive ส่วนตัวของคุณ จำเป็นต้องใช้คีย์ที่ออกโดยบัญชี Google Developer ของคุณเอง (ทำตามคู่มือสั้นๆ ได้ฟรีโดยไม่เสียค่าบริการ)
+            </p>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Google Client ID</label>
+                    <input type="text" id="g-client-id" placeholder="ป้อน Client ID เช่น xxxxxxxxxxxx-xxxxxxxx.apps.googleusercontent.com" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Google API Key</label>
+                    <input type="password" id="g-api-key" placeholder="ป้อน Google API Key เช่น AIzaSy..." class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono">
+                </div>
+            </div>
+
+            <div class="bg-slate-50 p-3 rounded-lg border text-[11px] text-slate-600 space-y-1">
+                <p class="font-semibold text-slate-800">🛠️ วิธีตั้งค่าสั้นๆ:</p>
+                <ol class="list-decimal pl-4 space-y-1">
+                    <li>เข้าสู่ <a href="https://console.cloud.google.com/" target="_blank" class="text-indigo-600 underline">Google Cloud Console</a> สร้างโปรเจกต์ใหม่</li>
+                    <li>เปิดใช้งาน **Google Drive API** ค้นหาและกด Enable</li>
+                    <li>ตั้งค่าสิทธิ์ที่ **OAuth Consent Screen** (เลือกประเภท External / Testing) และเพิ่ม Email ของคุณในฐานะ Test Users</li>
+                    <li>สร้างสิทธิ์เข้าใช้งานที่ **Credentials** -> สร้าง OAuth Client ID (เลือก Web Application, ในหัวข้อ *Authorized JavaScript Origins* ใส่ <code class="bg-slate-100 px-1 rounded">http://localhost</code> หรือ URL ปัจจุบันที่คุณเปิดหน้าเว็บนี้)</li>
+                    <li>สร้าง API Key เพิ่มเติมในหน้านั้นและคัดลอกข้อมูลทั้ง 2 มากรอก</li>
+                </ol>
+            </div>
+
+            <div class="flex gap-2 justify-end pt-2">
+                <button onclick="closeDriveSetupModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 py-1.5 px-3.5 rounded-lg text-xs font-semibold">ปิดหน้าต่าง</button>
+                <button onclick="saveDriveCredentials()" class="bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 px-3.5 rounded-lg text-xs font-semibold">บันทึกข้อมูลและซิงก์</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <!-- Quick Action Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <!-- Stats -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
+                <div class="p-3 bg-red-100 text-red-600 rounded-lg">
+                    <i data-lucide="alert-octagon" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <span class="block text-xs text-slate-500 font-medium">งานวิกฤต (🔴)</span>
+                    <span id="count-critical" class="text-2xl font-bold text-slate-800">0</span>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
+                <div class="p-3 bg-amber-100 text-amber-600 rounded-lg">
+                    <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <span class="block text-xs text-slate-500 font-medium">ต้องเฝ้าระวัง (🟡)</span>
+                    <span id="count-warning" class="text-2xl font-bold text-slate-800">0</span>
+                </div>
+            </div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">
+                <div class="p-3 bg-emerald-100 text-emerald-600 rounded-lg">
+                    <i data-lucide="check-circle" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <span class="block text-xs text-slate-500 font-medium">งานปลอดภัย (🟢)</span>
+                    <span id="count-safe" class="text-2xl font-bold text-slate-800">0</span>
+                </div>
+            </div>
+
+            <!-- Quick Trigger Button for Deviation -->
+            <button onclick="openQuickDeviationModal()" class="bg-red-600 hover:bg-red-700 text-white font-semibold p-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-3 border-b-4 border-red-800 active:translate-y-1 active:border-b-0">
+                <span class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+                </span>
+                <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                <span>ออก Deviation ด่วน!</span>
+            </button>
+        </div>
+
+        <!-- Main Workspace: Split columns -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Side: Add Form & Google Drive Controller (lg:col-span-4) -->
+            <div class="lg:col-span-4 space-y-4">
+                
+                <!-- Google Drive Sync Panel -->
+                <section class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between border-b pb-2 mb-3">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="cloud" class="text-sky-600 w-5 h-5"></i>
+                            <h2 class="font-bold text-base text-slate-800">การซิงก์ข้อมูล (Cloud / Local)</h2>
+                        </div>
+                        <button onclick="openDriveSetupModal()" class="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-semibold" title="ตั้งค่าคีย์ API">
+                            <i data-lucide="settings" class="w-3.5 h-3.5"></i> ตั้งค่า API
+                        </button>
+                    </div>
+
+                    <!-- Connection Status & Sync Controls -->
+                    <div class="space-y-3">
+                        <div id="drive-unconfigured-state" class="text-center py-2 border border-slate-100 rounded-lg p-3 bg-slate-50/50">
+                            <p class="text-[11px] text-slate-500 mb-2 leading-relaxed">ยังไม่ได้ป้อน Google Cloud API คีย์ แต่คุณสามารถใช้ระบบสำรองข้อมูลออฟไลน์ผ่านไฟล์ด้านล่างนี้ได้ทันที!</p>
+                            <button onclick="openDriveSetupModal()" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-100 text-xs py-1.5 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all mb-1">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> ตั้งค่าเชื่อมต่อ Google Drive
+                            </button>
+                        </div>
+
+                        <div id="drive-configured-state" class="hidden space-y-2">
+                            <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100 text-xs">
+                                <span class="text-slate-500 flex items-center gap-1">
+                                    <span id="drive-status-dot" class="w-2.5 h-2.5 rounded-full bg-red-400 block"></span>
+                                    สถานะระบบคลาวด์:
+                                </span>
+                                <span id="drive-status-text" class="font-semibold text-slate-700">ไม่ได้เชื่อมต่อ</span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <button id="btn-drive-connect" onclick="authenticateGoogleDrive()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2 rounded-lg font-semibold flex items-center justify-center gap-1 shadow-sm transition-all">
+                                    <i data-lucide="log-in" class="w-3.5 h-3.5"></i> เชื่อมบัญชี
+                                </button>
+                                <button id="btn-drive-backup" onclick="backupToGoogleDrive()" disabled class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:pointer-events-none text-white text-xs py-2 rounded-lg font-semibold flex items-center justify-center gap-1 shadow-sm transition-all">
+                                    <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i> สำรองขึ้นคลาวด์
+                                </button>
+                            </div>
+
+                            <button id="btn-drive-restore" onclick="restoreFromGoogleDrive()" disabled class="w-full bg-sky-50 hover:bg-sky-100 disabled:opacity-50 disabled:pointer-events-none text-sky-950 border border-sky-100 text-xs py-2 rounded-lg font-semibold flex items-center justify-center gap-1 transition-all">
+                                <i data-lucide="cloud-download" class="w-3.5 h-3.5"></i> ดาวน์โหลดงานจากคลาวด์ลงโปรแกรม
+                            </button>
+                        </div>
+
+                        <!-- Offline Backup/Restore File controls -->
+                        <div class="border-t pt-3 mt-3 space-y-2">
+                            <span class="block text-xs font-bold text-slate-600">💾 จัดการข้อมูลแบบออฟไลน์ (Local File Sync)</span>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="exportTasksToJSON()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs py-2 rounded-lg font-semibold flex items-center justify-center gap-1 border border-slate-200 transition-all">
+                                    <i data-lucide="download" class="w-3.5 h-3.5 text-slate-600"></i> ส่งออกไฟล์ JSON
+                                </button>
+                                <button onclick="triggerImportTasks()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs py-2 rounded-lg font-semibold flex items-center justify-center gap-1 border border-slate-200 transition-all">
+                                    <i data-lucide="upload" class="w-3.5 h-3.5 text-slate-600"></i> นำเข้าไฟล์ JSON
+                                </button>
+                            </div>
+                            <input type="file" id="import-file-input" accept=".json" onchange="importTasksFromJSON(event)" class="hidden">
+                            <p class="text-[10px] text-slate-400 text-center" id="sync-history-text">ซิงก์ข้อมูลล่าสุดแบบออฟไลน์ (ในเครื่อง)</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Task Form Section -->
+                <section class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 h-fit">
+                    <div class="flex items-center gap-2 mb-4 border-b pb-2">
+                        <i data-lucide="clipboard-plus" class="text-indigo-600 w-5 h-5"></i>
+                        <h2 class="font-bold text-lg text-slate-800">เพิ่ม / วางแผนงานใหม่</h2>
+                    </div>
+
+                    <form id="task-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                        <input type="hidden" id="task-id">
+                        
+                        <!-- Task Category Selection -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">หมวดหมู่หลัก (Category)</label>
+                            <select id="task-category" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium" required onchange="presetTaskTemplate(this.value)">
+                                <option value="daily">🟢 ไลน์ผลิตหน้างาน (Daily Routine) [Weight x2.0]</option>
+                                <option value="qa">🔵 ประกันคุณภาพ & งานด่วน (QA / Compliance) [Weight x2.0]</option>
+                                <option value="validation">🟣 ตรวจสอบความถูกต้อง (Validation / Qual) [Weight x1.5]</option>
+                                <option value="sop">🟡 เอกสารมาตรฐาน (WI / SOP / STD Yield) [Weight x1.0]</option>
+                            </select>
+                        </div>
+
+                        <!-- Task Sub-category Preset Select dropdown -->
+                        <div>
+                            <label class="block text-xs font-semibold text-indigo-600 mb-1 flex items-center gap-1">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> งานย่อยมาตรฐาน (Quick Presets)
+                            </label>
+                            <select id="task-preset" class="w-full bg-indigo-50/50 border border-indigo-100 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none text-indigo-900 font-medium" onchange="applyPresetSelection(this.value)">
+                                <!-- Options populated dynamically from Javascript -->
+                            </select>
+                        </div>
+
+                        <!-- Task Title -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">ชื่องาน / รายละเอียด</label>
+                            <input type="text" id="task-title" placeholder="พิมพ์ชื่องานด่วน..." class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+                        </div>
+
+                        <!-- Time & Deadline Settings -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1" title="ระยะเวลาที่ต้องลงมือทำจริงจนกว่าจะเสร็จ">
+                                    เวลาที่ใช้ทำงาน (ชั่วโมง) <i data-lucide="info" class="inline w-3 h-3 text-slate-400"></i>
+                                </label>
+                                <input type="number" id="task-est" step="0.5" min="0.5" value="1" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">วันและเวลาที่ต้องเสร็จ (Due)</label>
+                                <input type="datetime-local" id="task-deadline" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+                            </div>
+                        </div>
+
+                        <!-- Sub-tasks Section for Projects -->
+                        <div id="subtask-container" class="border border-slate-100 p-3 rounded-lg bg-slate-50/50">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                                    <span>ขั้นตอนงานย่อย (GMP Checklist)</span>
+                                </span>
+                                <button type="button" onclick="addSubtaskField()" class="text-xs text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-0.5">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> เพิ่มข้อ
+                                </button>
+                            </div>
+                            <div id="subtask-list" class="space-y-1.5">
+                                <!-- Dynamic subtask inputs will render here with up/down arrows -->
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="flex gap-2 pt-2">
+                            <button type="submit" id="submit-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all shadow-md">
+                                เพิ่มงานลงตารางแผน
+                            </button>
+                            <button type="button" id="cancel-edit-btn" onclick="resetForm()" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 py-2 px-3 rounded-lg text-sm transition-all">
+                                ยกเลิก
+                            </button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+
+            <!-- Right Side: Prioritized Work Queue (lg:col-span-8) -->
+            <section class="lg:col-span-8 space-y-4">
+                
+                <!-- View Filter & Collapse Options -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="sort-asc" class="text-indigo-600 w-5 h-5"></i>
+                        <h2 class="font-bold text-lg text-slate-800">คิวงานเรียงตามความเร่งด่วนทางเทคนิค</h2>
+                    </div>
+                    
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <!-- Global Subtask Expand/Collapse Toggle -->
+                        <div class="flex bg-slate-100 p-1 rounded-lg border text-slate-600 gap-1">
+                            <button onclick="toggleAllTasksCollapse(true)" class="text-[10px] font-bold hover:text-indigo-900 hover:bg-white px-2 py-1 rounded-md transition-all flex items-center gap-1" title="ย่อขั้นตอนงานย่อยทั้งหมด">
+                                <i data-lucide="chevrons-up" class="w-3.5 h-3.5 text-slate-500"></i> ย่อทั้งหมด
+                            </button>
+                            <button onclick="toggleAllTasksCollapse(false)" class="text-[10px] font-bold hover:text-indigo-900 hover:bg-white px-2 py-1 rounded-md transition-all flex items-center gap-1" title="ขยายขั้นตอนงานย่อยทั้งหมด">
+                                <i data-lucide="chevrons-down" class="w-3.5 h-3.5 text-slate-500"></i> ขยายทั้งหมด
+                            </button>
+                        </div>
+
+                        <!-- Main Category Filters -->
+                        <div class="flex bg-slate-100 p-1 rounded-lg border flex-wrap">
+                            <button onclick="setFilter('all')" id="filter-all" class="text-xs px-2.5 py-1.5 rounded-md font-medium bg-white text-indigo-900 shadow-sm transition-all">ทั้งหมด</button>
+                            <button onclick="setFilter('daily')" id="filter-daily" class="text-xs px-2.5 py-1.5 rounded-md font-medium text-slate-600 hover:text-slate-900 transition-all">Daily</button>
+                            <button onclick="setFilter('qa')" id="filter-qa" class="text-xs px-2.5 py-1.5 rounded-md font-medium text-slate-600 hover:text-slate-900 transition-all">QA/Dev</button>
+                            <button onclick="setFilter('validation')" id="filter-validation" class="text-xs px-2.5 py-1.5 rounded-md font-medium text-slate-600 hover:text-slate-900 transition-all">Validation</button>
+                            <button onclick="setFilter('sop')" id="filter-sop" class="text-xs px-2.5 py-1.5 rounded-md font-medium text-slate-600 hover:text-slate-900 transition-all">SOP/Yield</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty state -->
+                <div id="empty-state" class="hidden bg-white py-12 px-4 rounded-xl shadow-sm border border-slate-200 text-center">
+                    <div class="bg-slate-100 p-4 rounded-full w-16 h-16 mx-auto flex items-center justify-center text-slate-400 mb-3">
+                        <i data-lucide="clipboard-list" class="w-8 h-8"></i>
+                    </div>
+                    <h3 class="text-base font-semibold text-slate-700">ไม่มีภาระงานค้างอยู่ในขณะนี้</h3>
+                    <p class="text-xs text-slate-400 mt-1">ยอดเยี่ยมมาก! การผลิตเดินหน้าได้อย่างราบรื่น หรือเพิ่มเป้าหมายงานใหม่จากทางด้านซ้าย</p>
+                </div>
+
+                <!-- Priority Work Queue Container -->
+                <div id="task-list-container" class="space-y-3">
+                    <!-- Dynamic tasks list goes here -->
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Modal for Deviation Generation -->
+    <div id="deviation-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl border border-red-200 max-w-md w-full overflow-hidden">
+            <div class="bg-red-600 p-4 text-white flex items-center gap-2">
+                <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                <h3 class="font-bold text-lg">รายงานใบ Deviation (ด่วนที่สุด)</h3>
+            </div>
+            <div class="p-5 space-y-4">
+                <p class="text-xs text-slate-500">
+                    *ตามข้อกำหนด GMP อาการเบี่ยงเบนหรือข้อบกพร่องต้องได้รับบันทึกและตรวจสอบทันทีเพื่อป้องกันผลเสียต่อยา ระบบจะคำนวณเดดไลน์สืบสวนเบื้องต้นไว้ที่ 24 ชั่วโมงข้างหน้าโดยอัตโนมัติ
+                </p>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">เหตุการณ์ความเบี่ยงเบนที่เกิดขึ้นจริง</label>
+                    <textarea id="dev-title" rows="3" placeholder="ระบุเหตุการณ์ เช่น เครื่องตอกเม็ดยาขัดข้องทำให้น้ำหนักแกว่งเกินเบี่ยงเบน หรือแกรนูลมีความชื้นเกินค่าควบคุม..." class="w-full bg-slate-50 border border-red-200 focus:ring-2 focus:ring-red-500 focus:outline-none rounded-lg p-2.5 text-sm"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">ระยะเวลาที่สืบสวน (ชม.)</label>
+                        <input type="number" id="dev-est" value="2" min="1" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-sm focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">ระดับความเร่งด่วน</label>
+                        <div class="flex items-center h-9 text-xs text-red-700 font-bold bg-red-50 px-3 rounded-lg border border-red-200">
+                            <i data-lucide="zap" class="w-4 h-4 mr-1"></i> วิกฤต (เดดไลน์ 24 ชม.)
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-2 border-t pt-4">
+                    <button onclick="submitQuickDeviation()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-all shadow-md">
+                        บันทึกและคำนวณลำดับคิวงานใหม่
+                    </button>
+                    <button onclick="closeQuickDeviationModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 py-2 px-4 rounded-lg text-sm font-medium">
+                        ยกเลิก
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Identity API client and GAPI loader scripts -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+
+    <!-- Script Section -->
+    <script>
+        // Custom robust unique ID generator that runs safely everywhere (replaces crypto.randomUUID which bugs in local frames)
+        function generateUUID() {
+            return 'uid-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now().toString(36);
+        }
+
+        let simulatedTime = new Date();
+        let isRealTimeMode = true; // Flag for real-time tracking
+        let clockInterval = null; // Background clock interval ticker
+
+        let currentFilter = 'all';
+        let pendingDeleteId = null;
+        let tempSubtasks = [];
+
+        // Google Drive integration states
+        let gapiInited = false;
+        let gisInited = false;
+        let googleTokenClient = null;
+        let driveAccessToken = null;
+
+        // Structured Database for Pharmacist Presets & Sub-categories
+        const pharmacistPresets = {
+            daily: {
+                label: "งานในไลน์ผลิตหน้างาน",
+                options: [
+                    {
+                        id: "bpr-op",
+                        name: "1. ตรวจ BPR ของขั้นตอกและเคลือบ (In-process)",
+                        title: "ตรวจ BPR ควบคุมดูแลขั้นตอนตอกและเคลือบยาเม็ด",
+                        est: 1.5,
+                        subtasks: [
+                            { id: "b1", title: "ตรวจสอบบันทึกอุณหภูมิและความชื้นสัมพัทธ์ห้องผลิต", done: false },
+                            { id: "b2", title: "เช็คผลการคุม IPC (น้ำหนักเม็ด, ความหนา, ความแข็ง, ละลายตัว)", done: false },
+                            { id: "b3", title: "ตรวจสอบลายเซ็นการตรวจสอบแกรนูลก่อนตอก/น้ำยาเคลือบ", done: false }
+                        ]
+                    },
+                    {
+                        id: "bpr-release",
+                        name: "2. ตรวจปล่อย BPR ของยาที่ผลิตเสร็จแล้ว (Batch Release)",
+                        title: "ตรวจสอบความสมบูรณ์ BPR เพื่อส่งตรวจปล่อย (Batch Release)",
+                        est: 2.0,
+                        subtasks: [
+                            { id: "r1", title: "ตรวจสอบการกระทบยอดวัตถุดิบและผลผลิตจริง (Yield Reconciliation)", done: false },
+                            { id: "r2", title: "ตรวจสอบรายงานการทดสอบในวิเคราะห์ของฝ่ายควบคุมคุณภาพ (QA/QC)", done: false },
+                            { id: "r3", title: "ตรวจสอบบันทึกความสะอาดและการส่งคืนเศษผงยา/สารเคมีเหลือใช้", done: false }
+                        ]
+                    },
+                    {
+                        id: "weighing-recheck",
+                        name: "3. Recheck ยาห้องชั่งน้ำหนักสารตั้งต้น",
+                        title: "Recheck รายการวัตถุดิบและสัญลักษณ์ห้องชั่งสาร (Weighing Room)",
+                        est: 0.5,
+                        subtasks: [
+                            { id: "w1", title: "ทวนสอบน้ำหนักดิบบนฉลากเปรียบเทียบกับสูตรใน BPR", done: false },
+                            { id: "w2", title: "เช็ควันหมดอายุและการรับรอง (CoA) ของสารเคมีและวัตถุดิบ", done: false },
+                            { id: "w3", title: "ตรวจสอบค่ามาตรฐานการสอบเทียบตราชั่งก่อนลงน้ำหนัก", done: false }
+                        ]
+                    },
+                    { id: "custom-daily", name: "📝 ระบุด้วยตัวเอง...", title: "", est: 1.0, subtasks: [] }
+                ]
+            },
+            qa: {
+                label: "งานประกันคุณภาพและประเมินระบบ",
+                options: [
+                    {
+                        id: "change-control",
+                        name: "1. ออกคำขอความร่วมมือและเปลี่ยนระบบ Change Control",
+                        title: "จัดเตรียมและประเมินผลกระทบ Change Control",
+                        est: 3.0,
+                        subtasks: [
+                            { id: "cc1", title: "เขียนอธิบายรายละเอียดการเปลี่ยนแปลงและเหตุผลที่เหมาะสม", done: false },
+                            { id: "cc2", title: "วิเคราะห์ผลกระทบต่อคุณภาพผลิตภัณฑ์ (Risk & Impact Analysis)", done: false },
+                            { id: "cc3", title: "ส่งต่อแบบประเมินขออนุมัติคณะกรรมการ QA", done: false }
+                        ]
+                    },
+                    {
+                        id: "deviation",
+                        name: "2. ออกใบ Deviation และตั้งทีมสืบสวนสาเหตุเบื้องต้น",
+                        title: "ดำเนินการสืบสวนหาสาเหตุ Deviation (GMP investigation)",
+                        est: 4.0,
+                        subtasks: [
+                            { id: "d1", title: "ลงพื้นที่เก็บข้อมูลพยานบุคคล บันทึกค่าเครื่องจักรย้อนหลัง", done: false },
+                            { id: "d2", title: "วิเคราะห์สาเหตุเชิงลึกด้วย Fishbone หรือ 5 Whys", done: false },
+                            { id: "d3", title: "ร่างมาตรการแก้ไขและป้องกันการเกิดซ้ำ (CAPA Plan)", done: false }
+                        ]
+                    },
+                    { id: "custom-qa", name: "📝 ระบุด้วยตัวเอง...", title: "", est: 1.5, subtasks: [] }
+                ]
+            },
+            validation: {
+                label: "งานตรวจสอบและประเมินความถูกต้องทางวิศวกรรม",
+                options: [
+                    {
+                        id: "qualification",
+                        name: "1. ทำเอกสารและทดสอบ Qualification ของเครื่องจักร",
+                        title: "ตรวจสอบความเหมาะสมและประเมิน Qualification (IQ/OQ/PQ) ของเครื่องจักร",
+                        est: 6.0,
+                        subtasks: [
+                            { id: "q1", title: "จัดเตรียมและแก้ไขเล่มทฤษฎี Qualification Protocol", done: false },
+                            { id: "q2", title: "รันการทดสอบและเก็บันทึกข้อมูลความเร็ว/แรงสั่นเครื่องจักร", done: false },
+                            { id: "q3", title: "เขียนสรุป Qualification Report นำเสนอลงทะเบียนประวัติเครื่องจักร", done: false }
+                        ]
+                    },
+                    {
+                        id: "process-validation",
+                        name: "2. ทำเอกสารและควบคุมกระบวนการทำ Process Validation",
+                        title: "จัดทำและดำเนินกระบวนการ Process Validation (3 Batches ตรวจสอบ)",
+                        est: 8.0,
+                        subtasks: [
+                            { id: "pv1", title: "เขียนเอกสารสรุปข้อบังคับ Process Validation Protocol", done: false },
+                            { id: "pv2", title: "ควบคุมการผลิตและการสุ่มเก็บตัวอย่างยา (Sampling Plan) หน้าไลน์จริง", done: false },
+                            { id: "pv3", title: "ประมวลวิเคราะห์ทางสถิติ (Standard Deviation, CpK) สรุปรายงานฉบับสมบูรณ์", done: false }
+                        ]
+                    },
+                    { id: "custom-val", name: "📝 ระบุด้วยตัวเอง...", title: "", est: 2.0, subtasks: [] }
+                ]
+            },
+            sop: {
+                label: "งานเอกสารมาตรฐานการปฏิบัติงาน",
+                options: [
+                    {
+                        id: "wi-sop",
+                        name: "1. ทบทวน / แก้ไข / จัดทำ WI และ SOP มาตรฐาน",
+                        title: "ทบทวนปรับเปลี่ยนมาตรฐานขั้นตอนวิธีปฏิบัติงาน WI / SOP",
+                        est: 3.5,
+                        subtasks: [
+                            { id: "s1", title: "เขียนร่างขั้นตอนปรับปรุงและสอดรับกับหน้างานตอก/เคลือบปัจจุบัน", done: false },
+                            { id: "s2", title: "ส่งต่อหัวหน้าฝ่ายผลิตและฝ่าย QA ทบทวนร่างเนื้อหา", done: false },
+                            { id: "s3", title: "ฝึกอบรม (Training) พนักงาน และแจกจ่ายเอกสารควบคุมเข้าระบบจริง", done: false }
+                        ]
+                    },
+                    {
+                        id: "std-yield",
+                        name: "2. ทบทวน / แก้ไข / จัดทำเอกสารคำนวณ STD Yield",
+                        title: "ประเมินและทบทวนสูตรคำนวณผลผลิตมาตรฐาน (STD Yield Update)",
+                        est: 4.0,
+                        subtasks: [
+                            { id: "y1", title: "รวบรวมข้อมูลเปอร์เซ็นต์สูญเสียจากการผลิตย้อนหลัง 10 รุ่นล่าสุด", done: false },
+                            { id: "y2", title: "ประมวลผลคำนวณขีดจำกัดล่างขีดจำกัดบน (Control Limits) ใหม่", done: false },
+                            { id: "y3", title: "อัพเกรดเกณฑ์มาตรฐานเข้าระบบประเมินผลประสิทธิภาพการผลิตโรงงาน", done: false }
+                        ]
+                    },
+                    { id: "custom-sop", name: "📝 ระบุด้วยตัวเอง...", title: "", est: 1.0, subtasks: [] }
+                ]
+            }
+        };
+
+        // Tasks list in memory
+        let tasks = [];
+
+        const categoryWeights = {
+            daily: 2.0,
+            qa: 2.0,
+            validation: 1.5,
+            sop: 1.0
+        };
+
+        const categoryBadges = {
+            daily: { text: 'ไลน์ผลิตหน้างาน', class: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+            qa: { text: 'ประกันคุณภาพ & QA', class: 'bg-blue-50 text-blue-700 border-blue-200' },
+            validation: { text: 'Validation / Qual', class: 'bg-purple-50 text-purple-700 border-purple-200' },
+            sop: { text: 'เอกสารมาตรฐาน SOP', class: 'bg-amber-50 text-amber-700 border-amber-200' }
+        };
+
+        // Default local fallback seed data
+        const fallbackDefaultTasks = [
+            {
+                id: 'task-fallback-1',
+                title: 'ตรวจปล่อย BPR ยาพาราเซตามอล 500mg Batch 240012',
+                category: 'daily',
+                est: 1.5,
+                deadline: new Date(new Date().getTime() + 4 * 60 * 60 * 1000).toISOString(),
+                collapsed: false,
+                subtasks: [
+                    { id: "st-fb-1", title: "ตรวจสอบผลทดสอบวิเคราะห์ห้องแล็บ QC", done: true },
+                    { id: "st-fb-2", title: "เช็คยอดสูญเสียจริงเทียบเปอร์เซ็นต์ Yield มาตรฐาน", done: false }
+                ],
+                completed: false
+            },
+            {
+                id: 'task-fallback-2',
+                title: 'ทำเอกสารและควบคุมกระบวนการทำ Process Validation ของยาแก้ไอน้ำดำ Batch 240050',
+                category: 'validation',
+                est: 8.0,
+                deadline: new Date(new Date().getTime() + 28 * 60 * 60 * 1000).toISOString(),
+                collapsed: false,
+                subtasks: [
+                    { id: "st-fb-3", title: "เขียนเอกสารสรุปข้อบังคับ Process Validation Protocol", done: false },
+                    { id: "st-fb-4", title: "ควบคุมการผลิตและการสุ่มเก็บตัวอย่างยา (Sampling Plan) หน้าไลน์จริง", done: false }
+                ],
+                completed: false
+            }
+        ];
+
+        // ------------------------------------------------------------
+        // CORE CALCULATIONS
+        // ------------------------------------------------------------
+        function calculateTaskScore(task) {
+            const now = new Date(simulatedTime);
+            const due = new Date(task.deadline);
+            const diffMs = due - now;
+            
+            if (diffMs <= 0) {
+                return {
+                    urgency: 999,
+                    score: 999 * (categoryWeights[task.category] || 1.0),
+                    remainingText: 'เกินกำหนดเดดไลน์แล้ว!',
+                    status: 'critical'
+                };
+            }
+
+            // Calculations based on 8-hour workday scale
+            const remainingHoursTotal = diffMs / (1000 * 60 * 60);
+            const remainingDays = remainingHoursTotal / 24;
+            const remainingWorkHours = remainingDays * 8;
+            const activeRemainingHours = Math.max(remainingWorkHours, 0.1);
+
+            let effectiveEst = task.est;
+            if (task.subtasks && task.subtasks.length > 0) {
+                const undoneCount = task.subtasks.filter(st => !st.done).length;
+                const totalCount = task.subtasks.length;
+                effectiveEst = task.est * (undoneCount / totalCount);
+            }
+
+            const urgencyRatio = effectiveEst / activeRemainingHours;
+            const finalScore = urgencyRatio * categoryWeights[task.category];
+
+            let status = 'safe';
+            if (urgencyRatio >= 0.9) {
+                status = 'critical';
+            } else if (urgencyRatio >= 0.5) {
+                status = 'warning';
+            }
+
+            let remainingText = '';
+            if (remainingHoursTotal < (1 / 60)) {
+                const secs = Math.max(Math.round(diffMs / 1000), 0);
+                remainingText = `เหลือเวลาอีก ${secs} วินาที`;
+            } else if (remainingHoursTotal < 1) {
+                const totalSecs = Math.floor(diffMs / 1000);
+                const mins = Math.floor(totalSecs / 60);
+                const secs = totalSecs % 60;
+                remainingText = `เหลือเวลา ${mins} นาที ${secs} วินาที`;
+            } else if (remainingHoursTotal < 24) {
+                const totalMins = Math.floor(diffMs / (1000 * 60));
+                const hrs = Math.floor(totalMins / 60);
+                const mins = totalMins % 60;
+                remainingText = `เหลือเวลาอีก ${hrs} ชม. ${mins} นาที`;
+            } else {
+                remainingText = `เหลือเวลา ${Math.floor(remainingHoursTotal / 24)} วัน ${Math.round(remainingHoursTotal % 24)} ชม.`;
+            }
+
+            return {
+                urgency: urgencyRatio,
+                score: finalScore,
+                remainingText: remainingText,
+                status: status
+            };
+        }
+
+        // ------------------------------------------------------------
+        // INITIALIZATION & REAL-TIME TIMER ENGINE
+        // ------------------------------------------------------------
+        function startRealTimeClock() {
+            isRealTimeMode = true;
+            simulatedTime = new Date();
+            updateTimeDisplay();
+            updateClockUI();
+
+            if (clockInterval) clearInterval(clockInterval);
+            
+            clockInterval = setInterval(() => {
+                if (isRealTimeMode) {
+                    simulatedTime = new Date();
+                    updateTimeDisplay();
+                    renderTasks(); 
+                }
+            }, 1000);
+        }
+
+        function syncToRealTime() {
+            startRealTimeClock();
+            showToast('ปรับกลับคืนสู่โหมดเวลาจริงปัจจุบันเรียบร้อยแล้ว', 'info');
+        }
+
+        function updateClockUI() {
+            const dotPing = document.getElementById('time-mode-ping');
+            const dotCore = document.getElementById('time-mode-core');
+            const modeLabel = document.getElementById('time-mode-label');
+            const timeDisplay = document.getElementById('current-time-display');
+            const resetBtn = document.getElementById('btn-reset-realtime');
+
+            if (isRealTimeMode) {
+                dotPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+                dotCore.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
+                modeLabel.className = "block text-[9px] text-emerald-300 uppercase font-bold tracking-wider";
+                modeLabel.textContent = "เวลาจริงปัจจุบัน";
+                timeDisplay.className = "text-sm font-mono font-bold text-emerald-400";
+                resetBtn.classList.add('hidden');
+            } else {
+                dotPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75";
+                dotCore.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500";
+                modeLabel.className = "block text-[9px] text-amber-300 uppercase font-bold tracking-wider";
+                modeLabel.textContent = "เวลาจำลองของระบบ";
+                timeDisplay.className = "text-sm font-mono font-bold text-amber-400";
+                resetBtn.classList.remove('hidden');
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-xl shadow-lg border text-sm font-semibold flex items-center gap-2.5 transition-all transform translate-y-2 opacity-0 pointer-events-auto bg-white z-50`;
+            
+            let icon = 'check-circle';
+            let colorClass = 'border-emerald-200 text-emerald-800';
+            if (type === 'error') {
+                icon = 'alert-octagon';
+                colorClass = 'border-red-200 text-red-800';
+            } else if (type === 'info') {
+                icon = 'info';
+                colorClass = 'border-indigo-200 text-indigo-800';
+            }
+
+            toast.innerHTML = `
+                <i data-lucide="${icon}" class="w-5 h-5"></i>
+                <span>${message}</span>
+            `;
+            toast.className += ` ${colorClass}`;
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 3500);
+        }
+
+        function updateTimeDisplay() {
+            const display = document.getElementById('current-time-display');
+            const options = { 
+                weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: false
+            };
+            display.textContent = simulatedTime.toLocaleString('th-TH', options);
+        }
+
+        function advanceTime(hours) {
+            if (isRealTimeMode) {
+                isRealTimeMode = false;
+                if (clockInterval) clearInterval(clockInterval);
+            }
+            simulatedTime.setTime(simulatedTime.getTime() + hours * 60 * 60 * 1000);
+            updateTimeDisplay();
+            updateClockUI();
+            renderTasks();
+            showToast(`จำลองเวลาเดินหน้าไป ${hours} ชั่วโมง (เข้าสู่โหมดจำลองเวลา)`, 'info');
+        }
+
+        // ------------------------------------------------------------
+        // OFFLINE BACKUP (JSON FILE IMPORT/EXPORT)
+        // ------------------------------------------------------------
+        function exportTasksToJSON() {
+            try {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks, null, 2));
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", dataStr);
+                const dateTag = new Date().toISOString().slice(0, 10);
+                downloadAnchor.setAttribute("download", `rx_production_planner_backup_${dateTag}.json`);
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+                showToast('ส่งออกไฟล์แผนงาน JSON เรียบร้อยแล้ว (เก็บไว้ปลอดภัย)');
+            } catch (err) {
+                showToast('การส่งออกข้อมูลล้มเหลว', 'error');
+            }
+        }
+
+        function triggerImportTasks() {
+            document.getElementById('import-file-input').click();
+        }
+
+        function importTasksFromJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (Array.isArray(importedData)) {
+                        tasks = importedData;
+                        saveLocalTasks();
+                        renderTasks();
+                        showToast('นำเข้าตารางข้อมูลแผนงานทั้งหมดเสร็จสิ้นเรียบร้อย!');
+                    } else {
+                        showToast('รูปแบบไฟล์สำรองไม่ถูกต้อง ไม่สามารถดำเนินการได้', 'error');
+                    }
+                } catch (err) {
+                    showToast('การอ่านไฟล์ข้อมูลล้มเหลว ตรวจสอบรูปแบบไฟล์อีกครั้ง', 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input element
+        }
+
+        // ------------------------------------------------------------
+        // PERSISTENCE CACHE (LOCALSTORAGE)
+        // ------------------------------------------------------------
+        function loadLocalSettingsAndData() {
+            const clientId = localStorage.getItem('rx_google_client_id');
+            const apiKey = localStorage.getItem('rx_google_api_key');
+            if (clientId && apiKey) {
+                document.getElementById('g-client-id').value = clientId;
+                document.getElementById('g-api-key').value = apiKey;
+                updateDriveUIState(true);
+            } else {
+                updateDriveUIState(false);
+            }
+
+            const savedTasks = localStorage.getItem('rx_production_tasks');
+            if (savedTasks) {
+                try {
+                    tasks = JSON.parse(savedTasks);
+                } catch(e) {
+                    tasks = [...fallbackDefaultTasks];
+                }
+            } else {
+                tasks = [...fallbackDefaultTasks];
+            }
+
+            const lastSync = localStorage.getItem('rx_last_sync_time');
+            if (lastSync) {
+                document.getElementById('sync-history-text').textContent = `ปรับปรุงล่าสุด: ${lastSync}`;
+            }
+        }
+
+        function saveLocalTasks() {
+            localStorage.setItem('rx_production_tasks', JSON.stringify(tasks));
+            const nowStr = new Date().toLocaleTimeString('th-TH') + ' ' + new Date().toLocaleDateString('th-TH');
+            localStorage.setItem('rx_last_sync_time', `บันทึกในเครื่อง: ${nowStr}`);
+            document.getElementById('sync-history-text').textContent = `บันทึกในเครื่องล่าสุด: ${nowStr}`;
+        }
+
+        // ------------------------------------------------------------
+        // GOOGLE DRIVE INTEGRATION ENGINE
+        // ------------------------------------------------------------
+        function initGoogleClientLibraries() {
+            const clientId = localStorage.getItem('rx_google_client_id');
+            const apiKey = localStorage.getItem('rx_google_api_key');
+            if (!clientId || !apiKey) return;
+
+            // Wait for gapi script to finish loading
+            if (typeof gapi === 'undefined') {
+                setTimeout(initGoogleClientLibraries, 500);
+                return;
+            }
+
+            gapi.load('client', async () => {
+                try {
+                    await gapi.client.init({ apiKey: apiKey });
+                    gapiInited = true;
+                    checkDriveAuthInitReady();
+                } catch(err) {
+                    console.error("GAPI client init failed:", err);
+                    showToast("API Key ไม่ถูกต้อง โปรดตรวจสอบใน Google Cloud Console", "error");
+                }
+            });
+
+        }
+
+        function checkDriveAuthInitReady() {
+            const clientId = localStorage.getItem('rx_google_client_id');
+            if (gapiInited && gisInited && clientId) {
+                googleTokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: clientId,
+                    scope: 'https://www.googleapis.com/auth/drive.file',
+                    callback: (response) => {
+                        if (response.error !== undefined) {
+                            showToast('ยืนยันสิทธิ์เข้าใช้บัญชี Google Drive ผิดพลาด!', 'error');
+                            console.error(response);
+                            return;
+                        }
+                        driveAccessToken = response.access_token;
+                        onGoogleDriveConnected();
+                    },
+                });
+            }
+        }
+
+        function authenticateGoogleDrive() {
+            if (!googleTokenClient) {
+                showToast('SDK ยังโหลดไม่เสร็จ กรุณารอสักครู่แล้วกดอีกครั้ง', 'info');
+                initGoogleClientLibraries();
+                return;
+            }
+            googleTokenClient.requestAccessToken({ prompt: 'consent' });
+        }
+
+        function onGoogleDriveConnected() {
+            const dot = document.getElementById('drive-status-dot');
+            const statusText = document.getElementById('drive-status-text');
+            const connectBtn = document.getElementById('btn-drive-connect');
+            const backupBtn = document.getElementById('btn-drive-backup');
+            const restoreBtn = document.getElementById('btn-drive-restore');
+
+            dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 block animate-pulse";
+            statusText.textContent = "เชื่อมโยงสำเร็จ";
+            statusText.className = "font-bold text-emerald-600";
+            
+            connectBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> เชื่อมต่อแล้ว';
+            connectBtn.className = "bg-emerald-100 text-emerald-800 text-xs py-2 rounded-lg font-semibold flex items-center justify-center gap-1 transition-all";
+            connectBtn.disabled = true;
+
+            backupBtn.disabled = false;
+            restoreBtn.disabled = false;
+            lucide.createIcons();
+
+            showToast('เชื่อมต่อคลาวด์ Google Drive สำเร็จ!');
+            restoreFromGoogleDrive(true);
+        }
+
+        const FILENAME_ON_DRIVE = "rx_production_planner_data.json";
+
+        async function findDriveFile() {
+            try {
+                const response = await gapi.client.drive.files.list({
+                    q: `name = '${FILENAME_ON_DRIVE}' and trashed = false`,
+                    fields: 'files(id, name)',
+                    spaces: 'drive'
+                });
+                const files = response.result.files;
+                if (files && files.length > 0) {
+                    return files[0].id;
+                }
+                return null;
+            } catch (err) {
+                console.error("Search file error", err);
+                return null;
+            }
+        }
+
+        async function backupToGoogleDrive() {
+            if (!driveAccessToken) {
+                showToast('กรุณาลงชื่อเข้าใช้ Google Drive ก่อน!', 'error');
+                return;
+            }
+
+            showToast('กำลังสำรองข้อมูลขึ้นระบบคลาวด์...', 'info');
+            const fileId = await findDriveFile();
+            const boundary = 'foo_bar_baz';
+            const delimiter = `\r\n--${boundary}\r\n`;
+            const close_delim = `\r\n--${boundary}--`;
+
+            const metadata = {
+                name: FILENAME_ON_DRIVE,
+                mimeType: 'application/json'
+            };
+
+            const dataContent = JSON.stringify(tasks);
+
+            let multipartRequestBody =
+                delimiter +
+                'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+                JSON.stringify(metadata) +
+                delimiter +
+                'Content-Type: application/json\r\n\r\n' +
+                dataContent +
+                close_delim;
+
+            try {
+                let request;
+                if (fileId) {
+                    request = gapi.client.request({
+                        path: `/upload/drive/v3/files/${fileId}`,
+                        method: 'PATCH',
+                        params: { uploadType: 'multipart' },
+                        headers: {
+                            'Content-Type': `multipart/related; boundary="${boundary}"`
+                        },
+                        body: multipartRequestBody
+                    });
+                } else {
+                    request = gapi.client.request({
+                        path: '/upload/drive/v3/files',
+                        method: 'POST',
+                        params: { uploadType: 'multipart' },
+                        headers: {
+                            'Content-Type': `multipart/related; boundary="${boundary}"`
+                        },
+                        body: multipartRequestBody
+                    });
+                }
+
+                await request;
+                const nowStr = new Date().toLocaleTimeString('th-TH') + ' ' + new Date().toLocaleDateString('th-TH');
+                localStorage.setItem('rx_last_sync_time', `ซิงก์คลาวด์: ${nowStr}`);
+                document.getElementById('sync-history-text').textContent = `ซิงก์คลาวด์ล่าสุด: ${nowStr}`;
+                showToast('อัปโหลดและสำรองข้อมูลเข้า Google Drive สำเร็จเรียบร้อย!');
+            } catch (err) {
+                console.error("Backup failed", err);
+                showToast('การสำรองไฟล์ข้อมูลล้มเหลว โปรดลองเชื่อมต่อใหม่อีกครั้ง', 'error');
+            }
+        }
+
+        async function restoreFromGoogleDrive(autoSilent = false) {
+            if (!driveAccessToken) {
+                if(!autoSilent) showToast('กรุณาลงชื่อเข้าใช้ Google Drive ก่อน!', 'error');
+                return;
+            }
+
+            if(!autoSilent) showToast('กำลังค้นหาและเรียกไฟล์บนคลาวด์...', 'info');
+            const fileId = await findDriveFile();
+            
+            if (!fileId) {
+                if(!autoSilent) {
+                    showToast('ไม่พบไฟล์สำรองเดิมบน Drive ระบบจะสร้างไฟล์ใหม่เมื่อคุณกดสำรองข้อมูล', 'info');
+                }
+                return;
+            }
+
+            try {
+                const response = await gapi.client.request({
+                    path: `https://www.googleapis.com/drive/v3/files/${fileId}`,
+                    params: { alt: 'media' },
+                    headers: { Authorization: 'Bearer ' + driveAccessToken }
+                });
+                
+                const cloudTasks = response.result;
+                if (Array.isArray(cloudTasks)) {
+                    tasks = cloudTasks;
+                    saveLocalTasks(); 
+                    renderTasks();
+                    showToast('ซิงก์ดึงข้อมูลตารางงานล่าสุดจาก Google Drive ของคุณเรียบร้อยแล้ว!');
+                } else {
+                    showToast('ไฟล์สำรองมีโครงสร้างข้อมูลที่ไม่ถูกต้อง', 'error');
+                }
+            } catch (err) {
+                console.error("Restore failed", err);
+                showToast('ดาวน์โหลดข้อมูลจากคลาวด์ล้มเหลว!', 'error');
+            }
+        }
+
+        function updateDriveUIState(configured) {
+            const unconfiguredDiv = document.getElementById('drive-unconfigured-state');
+            const configuredDiv = document.getElementById('drive-configured-state');
+            if (configured) {
+                unconfiguredDiv.classList.add('hidden');
+                configuredDiv.classList.remove('hidden');
+            } else {
+                unconfiguredDiv.classList.remove('hidden');
+                configuredDiv.classList.add('hidden');
+            }
+        }
+
+        // ------------------------------------------------------------
+        // DRIVE MODAL CONTROLS
+        // ------------------------------------------------------------
+        function openDriveSetupModal() {
+            document.getElementById('g-client-id').value = localStorage.getItem('rx_google_client_id') || '';
+            document.getElementById('g-api-key').value = localStorage.getItem('rx_google_api_key') || '';
+            document.getElementById('drive-setup-modal').classList.remove('hidden');
+        }
+        function closeDriveSetupModal() {
+            document.getElementById('drive-setup-modal').classList.add('hidden');
+        }
+        function saveDriveCredentials() {
+            const clientId = document.getElementById('g-client-id').value.trim();
+            const apiKey   = document.getElementById('g-api-key').value.trim();
+            if (!clientId || !apiKey) {
+                showToast('กรุณากรอก Client ID และ API Key ให้ครบถ้วน', 'error');
+                return;
+            }
+            localStorage.setItem('rx_google_client_id', clientId);
+            localStorage.setItem('rx_google_api_key', apiKey);
+            closeDriveSetupModal();
+            updateDriveUIState(true);
+            showToast('บันทึก API credentials แล้ว กรุณากด "เชื่อมต่อ Drive"');
+            initGoogleClientLibraries();
+        }
+
+        // ------------------------------------------------------------
+        // PRESET SELECTIONS & CHECKLIST AUTOMATIONS
+        // ------------------------------------------------------------
+        function presetTaskTemplate(category) {
+            const presetSelect = document.getElementById('task-preset');
+            const group = pharmacistPresets[category];
+            
+            presetSelect.innerHTML = '';
+
+            if (group) {
+                group.options.forEach(opt => {
+                    const el = document.createElement('option');
+                    el.value = opt.id;
+                    el.textContent = opt.name;
+                    presetSelect.appendChild(el);
+                });
+            }
+
+            if (group && group.options.length > 0) {
+                applyPresetSelection(group.options[0].id);
+            }
+        }
+
+        function applyPresetSelection(presetId) {
+            const category = document.getElementById('task-category').value;
+            const group = pharmacistPresets[category];
+            if (!group) return;
+
+            const selectedOption = group.options.find(opt => opt.id === presetId);
+            if (!selectedOption) return;
+
+            const titleInput = document.getElementById('task-title');
+            const estInput = document.getElementById('task-est');
+            const deadlineInput = document.getElementById('task-deadline');
+
+            titleInput.value = selectedOption.title;
+            estInput.value = selectedOption.est;
+            
+            let offsetMs = 24 * 60 * 60 * 1000; 
+            if (category === 'daily') {
+                offsetMs = 6 * 60 * 60 * 1000;
+            } else if (category === 'validation') {
+                offsetMs = 48 * 60 * 60 * 1000;
+            }
+            
+            const calculatedDeadline = new Date(simulatedTime.getTime() + offsetMs);
+            deadlineInput.value = getLocalDateTimeString(calculatedDeadline);
+
+            tempSubtasks = selectedOption.subtasks.map(st => ({
+                id: generateUUID(),
+                title: st.title,
+                done: false
+            }));
+
+            renderFormSubtasks();
+        }
+
+        // ------------------------------------------------------------
+        // FORM SUBTASK MANAGEMENT WITH UP/DOWN REORDERING
+        // ------------------------------------------------------------
+        function moveSubtaskInForm(idx, direction) {
+            const targetIdx = idx + direction;
+            if (targetIdx < 0 || targetIdx >= tempSubtasks.length) return;
+            const temp = tempSubtasks[idx];
+            tempSubtasks[idx] = tempSubtasks[targetIdx];
+            tempSubtasks[targetIdx] = temp;
+            renderFormSubtasks();
+        }
+
+        function moveSubtaskInTask(taskId, subtaskId, direction) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task || !task.subtasks) return;
+            const idx = task.subtasks.findIndex(st => st.id === subtaskId);
+            if (idx === -1) return;
+            const targetIdx = idx + direction;
+            if (targetIdx < 0 || targetIdx >= task.subtasks.length) return;
+            
+            const temp = task.subtasks[idx];
+            task.subtasks[idx] = task.subtasks[targetIdx];
+            task.subtasks[targetIdx] = temp;
+            
+            saveLocalTasks();
+            renderTasks();
+            showToast('ปรับเปลี่ยนลำดับขั้นตอนของงานย่อยสำเร็จ', 'info');
+        }
+
+        function renderFormSubtasks() {
+            const list = document.getElementById('subtask-list');
+            list.innerHTML = '';
+            tempSubtasks.forEach((st, idx) => {
+                const el = document.createElement('div');
+                el.className = "flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-lg border border-slate-200/60";
+                el.innerHTML = `
+                    <input type="text" value="${st.title}" onchange="updateTempSubtaskTitle(${idx}, this.value)" class="flex-1 bg-white border border-slate-200 rounded p-1 text-xs focus:outline-none font-medium">
+                    <div class="flex items-center gap-0.5">
+                        <button type="button" onclick="moveSubtaskInForm(${idx}, -1)" class="p-1 text-slate-500 hover:text-indigo-600 disabled:opacity-30" ${idx === 0 ? 'disabled' : ''}>
+                            <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button type="button" onclick="moveSubtaskInForm(${idx}, 1)" class="p-1 text-slate-500 hover:text-indigo-600 disabled:opacity-30" ${idx === tempSubtasks.length - 1 ? 'disabled' : ''}>
+                            <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button type="button" onclick="removeSubtaskField(${idx})" class="p-1 text-slate-400 hover:text-red-500">
+                            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(el);
+            });
+            lucide.createIcons();
+        }
+
+        function addSubtaskField() {
+            tempSubtasks.push({ id: generateUUID(), title: 'ระบุขั้นตอนตรวจสอบ...', done: false });
+            renderFormSubtasks();
+        }
+
+        function removeSubtaskField(idx) {
+            tempSubtasks.splice(idx, 1);
+            renderFormSubtasks();
+        }
+
+        function updateTempSubtaskTitle(idx, val) {
+            tempSubtasks[idx].title = val;
+        }
+
+        // ------------------------------------------------------------
+        // SUBTASK ACCORDION COLLAPSE/EXPAND LOGIC
+        // ------------------------------------------------------------
+        function toggleTaskCollapse(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                // Toggle isCollapsed boolean status
+                task.collapsed = !(task.collapsed || false);
+                saveLocalTasks();
+                renderTasks();
+            }
+        }
+
+        function toggleAllTasksCollapse(collapseState) {
+            tasks.forEach(task => {
+                if (task.subtasks && task.subtasks.length > 0) {
+                    task.collapsed = collapseState;
+                }
+            });
+            saveLocalTasks();
+            renderTasks();
+            showToast(collapseState ? 'ย่อยสรุปรายการงานย่อยของงานทั้งหมดแล้ว' : 'ขยายแผงขั้นตอนเช็คลิสต์งานย่อยทั้งหมดแล้ว', 'info');
+        }
+
+        // ------------------------------------------------------------
+        // FORM ACTIONS & RENDERING
+        // ------------------------------------------------------------
+        function renderTasks() {
+            const container = document.getElementById('task-list-container');
+            const emptyState = document.getElementById('empty-state');
+            
+            container.innerHTML = '';
+
+            const processedTasks = tasks.map(task => {
+                const analysis = calculateTaskScore(task);
+                return { ...task, analysis };
+            });
+
+            processedTasks.sort((a, b) => {
+                if (a.completed !== b.completed) {
+                    return a.completed ? 1 : -1;
+                }
+                return b.analysis.score - a.analysis.score;
+            });
+
+            const filteredTasks = processedTasks.filter(task => {
+                if (currentFilter === 'all') return true;
+                return task.category === currentFilter;
+            });
+
+            let criticalCount = 0, warningCount = 0, safeCount = 0;
+            filteredTasks.forEach(task => {
+                if (!task.completed) {
+                    if (task.analysis.status === 'critical') criticalCount++;
+                    else if (task.analysis.status === 'warning') warningCount++;
+                    else safeCount++;
+                }
+            });
+
+            document.getElementById('count-critical').textContent = criticalCount;
+            document.getElementById('count-warning').textContent = warningCount;
+            document.getElementById('count-safe').textContent = safeCount;
+
+            if (filteredTasks.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            filteredTasks.forEach(task => {
+                const badge = categoryBadges[task.category];
+                const analysis = task.analysis;
+                const isCritical = analysis.status === 'critical' && !task.completed;
+                const isCollapsed = task.collapsed || false;
+                
+                let cardClass = "bg-white border border-slate-200";
+                let badgeColor = "bg-emerald-500";
+                
+                if (task.completed) {
+                    cardClass = "bg-slate-100 border-slate-200 opacity-60";
+                    badgeColor = "bg-slate-400";
+                } else if (analysis.status === 'critical') {
+                    cardClass = "critical-flash border-red-300 shadow-sm";
+                    badgeColor = "bg-red-500 animate-pulse";
+                } else if (analysis.status === 'warning') {
+                    cardClass = "bg-white border-amber-300 shadow-amber-50/20";
+                    badgeColor = "bg-amber-500";
+                }
+
+                let subtaskHtml = '';
+                if (task.subtasks && task.subtasks.length > 0) {
+                    const doneCount = task.subtasks.filter(st => st.done).length;
+                    const pct = Math.round((doneCount / task.subtasks.length) * 100);
+                    subtaskHtml = `
+                        <div class="mt-3 pt-3 border-t border-slate-100">
+                            <!-- Toggle Header Button Area -->
+                            <div class="flex justify-between items-center mb-1 text-xs text-slate-500 cursor-pointer select-none group/toggle" onclick="toggleTaskCollapse('${task.id}')" title="${isCollapsed ? 'คลิกเพื่อขยายดูเช็คลิสต์' : 'คลิกเพื่อย่อเช็คลิสต์'}">
+                                <span class="font-bold text-[11px] flex items-center gap-1 text-indigo-900 group-hover/toggle:text-indigo-600 transition-colors">
+                                    <i data-lucide="${isCollapsed ? 'chevron-right' : 'chevron-down'}" class="w-3.5 h-3.5 text-slate-400 group-hover/toggle:text-indigo-500 transition-colors"></i>
+                                    <span>ดัชนีความคืบหน้า: ${doneCount}/${task.subtasks.length} ขั้นตอน (${pct}%)</span>
+                                </span>
+                                <span class="text-[10px] text-slate-400 group-hover/toggle:text-slate-600 transition-colors flex items-center gap-0.5">
+                                    ${isCollapsed ? 'คลิกขยาย' : 'คลิกย่อ'} <i data-lucide="${isCollapsed ? 'maximize-2' : 'minimize-2'}" class="w-2.5 h-2.5"></i>
+                                </span>
+                            </div>
+                            
+                            <!-- Expandable/Collapsible checklist wrapper container -->
+                            <div class="${isCollapsed ? 'hidden' : 'block'} mt-2 space-y-2">
+                                <div class="w-full bg-slate-200 rounded-full h-1.5 mb-2">
+                                    <div class="bg-indigo-600 h-1.5 rounded-full transition-all" style="width: ${pct}%"></div>
+                                </div>
+                                <div class="flex flex-col gap-1.5 bg-slate-50/70 p-2 rounded-lg border border-slate-200/40">
+                                    ${task.subtasks.map((st, idx) => `
+                                        <div class="flex items-center justify-between gap-2 p-1 bg-white hover:bg-slate-100/80 rounded border border-slate-100 transition-colors">
+                                            <label class="flex items-center gap-2 text-xs text-slate-600 hover:text-slate-800 cursor-pointer flex-1 py-0.5">
+                                                <input type="checkbox" ${st.done ? 'checked' : ''} 
+                                                    onclick="toggleSubtask('${task.id}', '${st.id}')" 
+                                                    class="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 w-3.5 h-3.5">
+                                                <span class="${st.done ? 'line-through text-slate-400' : ''} text-[11px] font-medium">${st.title}</span>
+                                            </label>
+                                            <div class="flex items-center gap-0.5">
+                                                <button onclick="moveSubtaskInTask('${task.id}', '${st.id}', -1)" class="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30" ${idx === 0 ? 'disabled' : ''}>
+                                                    <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
+                                                </button>
+                                                <button onclick="moveSubtaskInTask('${task.id}', '${st.id}', 1)" class="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-30" ${idx === task.subtasks.length - 1 ? 'disabled' : ''}>
+                                                    <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const taskElement = document.createElement('div');
+                taskElement.className = `p-4 rounded-xl shadow-sm transition-all ${cardClass}`;
+                taskElement.innerHTML = `
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex items-start gap-3">
+                            <div class="mt-1 flex-shrink-0">
+                                <span class="relative flex h-3.5 w-3.5">
+                                    <span class="${isCritical ? 'animate-ping' : ''} absolute inline-flex h-full w-full rounded-full ${badgeColor} opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-3.5 w-3.5 ${badgeColor}"></span>
+                                </span>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-800 flex items-center gap-1.5 flex-wrap">
+                                    <span class="${task.completed ? 'line-through text-slate-400' : ''}">${task.title}</span>
+                                </h3>
+                                
+                                <div class="flex flex-wrap gap-2 mt-2 items-center text-[11px] text-slate-500">
+                                    <span class="px-2 py-0.5 rounded-full border text-[10px] font-bold ${badge.class}">
+                                        ${badge.text}
+                                    </span>
+                                    <span class="flex items-center gap-1 font-bold ${analysis.status === 'critical' && !task.completed ? 'text-red-600' : 'text-slate-600'}">
+                                        <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                                        ${analysis.remainingText}
+                                    </span>
+                                    <span class="text-slate-300">|</span>
+                                    <span>ภาระประเมินงาน: ${task.est} ชม.</span>
+                                    <span class="text-slate-300">|</span>
+                                    <span class="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                                        ค่าวินิจฉัยเร่งด่วน: ${analysis.score.toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions Buttons -->
+                        <div class="flex items-center gap-1 flex-shrink-0">
+                            <button onclick="toggleTaskComplete('${task.id}')" 
+                                class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-slate-100 transition-all" 
+                                title="${task.completed ? 'เปลี่ยนสถานะเป็นทำต่อ' : 'บันทึกสำเร็จสิ้น'}">
+                                <i data-lucide="${task.completed ? 'rotate-ccw' : 'check-circle-2'}" class="w-5 h-5"></i>
+                            </button>
+                            <button onclick="duplicateTask('${task.id}')" 
+                                class="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-all" 
+                                title="คัดลอกงานนี้เพื่อรัน Batch/รอบใหม่">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="editTask('${task.id}')" 
+                                class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 transition-all" 
+                                title="แก้ไขเนื้อหา">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="requestDeleteTask('${task.id}')" 
+                                class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-slate-100 transition-all" 
+                                title="ลบงานนี้">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    ${subtaskHtml}
+                `;
+                container.appendChild(taskElement);
+            });
+            
+            lucide.createIcons();
+        }
+
+        // ------------------------------------------------------------
+        // FILTER & CRUD MANAGEMENT
+        // ------------------------------------------------------------
+        function setFilter(category) {
+            currentFilter = category;
+            ['all', 'daily', 'qa', 'validation', 'sop'].forEach(cat => {
+                const btn = document.getElementById(`filter-${cat}`);
+                if (cat === category) {
+                    btn.className = "text-xs px-2.5 py-1.5 rounded-md font-medium bg-white text-indigo-900 shadow-sm transition-all";
+                } else {
+                    btn.className = "text-xs px-2.5 py-1.5 rounded-md font-medium text-slate-600 hover:text-slate-900 transition-all";
+                }
+            });
+            renderTasks();
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('task-id').value;
+            const title = document.getElementById('task-title').value.trim();
+            const category = document.getElementById('task-category').value;
+            const est = parseFloat(document.getElementById('task-est').value);
+            const deadline = document.getElementById('task-deadline').value;
+
+            if (!title) {
+                showToast('กรุณากรอกชื่องานหรือข้อมูลรายละเอียด!', 'error');
+                return;
+            }
+
+            if (id) {
+                const taskIdx = tasks.findIndex(t => t.id === id);
+                if (taskIdx > -1) {
+                    tasks[taskIdx] = {
+                        ...tasks[taskIdx],
+                        title,
+                        category,
+                        est,
+                        deadline: new Date(deadline).toISOString(),
+                        subtasks: [...tempSubtasks]
+                    };
+                    showToast('บันทึกปรับปรุงแก้ไขรายละเอียดข้อมูลงานแล้ว');
+                }
+            } else {
+                const newTask = {
+                    id: generateUUID(),
+                    title,
+                    category,
+                    est,
+                    deadline: new Date(deadline).toISOString(),
+                    collapsed: false, // Default newly created task to expanded
+                    subtasks: [...tempSubtasks],
+                    completed: false
+                };
+                tasks.push(newTask);
+                showToast('บันทึกรายละเอียดงานใหม่เข้าสู่บัญชีงานแล้ว');
+            }
+
+            saveLocalTasks();
+            resetForm();
+            renderTasks();
+        }
+
+        function resetForm() {
+            document.getElementById('task-id').value = '';
+            document.getElementById('task-title').value = '';
+            document.getElementById('task-category').value = 'daily';
+            document.getElementById('task-est').value = 1.5;
+            
+            const tomorrow = new Date(simulatedTime.getTime() + 24 * 60 * 60 * 1000);
+            document.getElementById('task-deadline').value = getLocalDateTimeString(tomorrow);
+            
+            tempSubtasks = [];
+            presetTaskTemplate('daily'); 
+
+            document.getElementById('submit-btn').textContent = 'เพิ่มงานลงตารางแผน';
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+        }
+
+        function editTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+
+            document.getElementById('task-id').value = task.id;
+            document.getElementById('task-title').value = task.title;
+            document.getElementById('task-category').value = task.category;
+            document.getElementById('task-est').value = task.est;
+            
+            const due = new Date(task.deadline);
+            document.getElementById('task-deadline').value = getLocalDateTimeString(due);
+
+            tempSubtasks = task.subtasks ? [...task.subtasks] : [];
+            renderFormSubtasks();
+
+            const presetSelect = document.getElementById('task-preset');
+            presetSelect.innerHTML = '<option value="custom-edit">🔄 กำลังอยู่ระหว่างการปรับปรุง...</option>';
+
+            document.getElementById('submit-btn').textContent = 'บันทึกการแก้ไขข้อมูล';
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+            
+            document.getElementById('task-form').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function setupConfirmModal() {
+            const cancelBtn = document.getElementById('confirm-cancel');
+            const deleteBtn = document.getElementById('confirm-delete');
+            const modal = document.getElementById('confirm-modal');
+
+            cancelBtn.onclick = function() {
+                modal.classList.add('hidden');
+                pendingDeleteId = null;
+            };
+
+            deleteBtn.onclick = function() {
+                if (pendingDeleteId) {
+                    tasks = tasks.filter(t => t.id !== pendingDeleteId);
+                    saveLocalTasks();
+                    renderTasks();
+                    showToast('ลบรายการงานออกเรียบร้อยแล้ว', 'error');
+                }
+                modal.classList.add('hidden');
+                pendingDeleteId = null;
+            };
+        }
+
+        function requestDeleteTask(id) {
+            pendingDeleteId = id;
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function duplicateTask(id) {
+            const sourceTask = tasks.find(t => t.id === id);
+            if (!sourceTask) return;
+
+            const duplicatedTask = {
+                id: generateUUID(),
+                title: `${sourceTask.title} (สำเนา)`,
+                category: sourceTask.category,
+                est: sourceTask.est,
+                deadline: sourceTask.deadline,
+                completed: false,
+                collapsed: sourceTask.collapsed || false,
+                subtasks: sourceTask.subtasks ? sourceTask.subtasks.map(st => ({
+                    id: generateUUID(),
+                    title: st.title,
+                    done: false
+                })) : []
+            };
+
+            tasks.push(duplicatedTask);
+            saveLocalTasks();
+            renderTasks();
+            showToast('คัดลอกและสร้างภาระงานสำเนาเสร็จเรียบร้อยแล้ว', 'info');
+        }
+
+        function toggleTaskComplete(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                if (task.completed && task.subtasks) {
+                    task.subtasks.forEach(st => st.done = true);
+                }
+                saveLocalTasks();
+                renderTasks();
+                showToast(task.completed ? 'บันทึกภาระงานสำเร็จสิ้นเรียบร้อยแล้ว' : 'เปิดรายการงานใหม่อีกครั้ง');
+            }
+        }
+
+        function toggleSubtask(taskId, subtaskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task && task.subtasks) {
+                const subtask = task.subtasks.find(st => st.id === subtaskId);
+                if (subtask) {
+                    subtask.done = !subtask.done;
+                    
+                    const allDone = task.subtasks.every(st => st.done);
+                    if (allDone && !task.completed) {
+                        task.completed = true;
+                        showToast('บันทึกกระบวนงานย่อยครบถ้วน! งานใหญ่สำเร็จอัตโนมัติ');
+                    } else if (!allDone && task.completed) {
+                        task.completed = false;
+                    }
+                    saveLocalTasks();
+                    renderTasks();
+                }
+            }
+        }
+
+        // ------------------------------------------------------------
+        // DEVIATION MODAL AUTOMATION
+        // ------------------------------------------------------------
+        function openQuickDeviationModal() {
+            document.getElementById('deviation-modal').classList.remove('hidden');
+            document.getElementById('dev-title').focus();
+        }
+
+        function submitQuickDeviation() {
+            const description = document.getElementById('dev-title').value.trim();
+            const estTime = parseFloat(document.getElementById('dev-est').value) || 2;
+
+            if (!description) {
+                showToast('กรุณาระบุคำอธิบายความเบี่ยงเบนอย่างถูกต้อง!', 'error');
+                return;
+            }
+
+            const deviationDeadline = new Date(simulatedTime.getTime() + 24 * 60 * 60 * 1000);
+
+            const deviationTask = {
+                id: generateUUID(),
+                title: `🚨 Deviation: ${description}`,
+                category: 'qa',
+                est: estTime,
+                deadline: deviationDeadline.toISOString(),
+                completed: false,
+                collapsed: false, // Expanded on creation so it draws focus
+                subtasks: [
+                    { id: generateUUID(), title: 'แจ้งหัวหน้าฝ่ายผลิต ทราบ และบันทึกข้อมูลหน้าไลน์', done: false },
+                    { id: generateUUID(), title: 'เปิดแฟ้มคดีและประเมินระดับความเสี่ยง (GMP Assessment)', done: false },
+                    { id: generateUUID(), title: 'กักกัน (Hold) กลุ่มยาชุดตรวจพบความเบี่ยงเบนป้องกันความปนเปื้อน', done: false }
+                ]
+            };
+
+            tasks.push(deviationTask);
+            saveLocalTasks();
+            closeQuickDeviationModal();
+            renderTasks();
+            showToast('ลงทะเบียนและเริ่มรายงานสืบสวนคดีความเบี่ยงเบนฉุกเฉิน!', 'error');
+        }
+
+        function closeQuickDeviationModal() {
+            document.getElementById('deviation-modal').classList.add('hidden');
+            document.getElementById('dev-title').value = '';
+        }
+
+        function getLocalDateTimeString(dateObj) {
+            const tzoffset = dateObj.getTimezoneOffset() * 60000;
+            const localISOTime = (new Date(dateObj.getTime() - tzoffset)).toISOString().slice(0, 16);
+            return localISOTime;
+        }
+
+        // ------------------------------------------------------------
+        // WINDOW ONLOAD INITIALIZATION (RECONCILED BUG FIX)
+        // ------------------------------------------------------------
+        window.onload = function () {
+            // 1. Start live time countdown clock
+            startRealTimeClock();
+
+            // 2. Load all cached tasks / credentials
+            loadLocalSettingsAndData();
+
+            // 3. Populate default sub-category templates
+            presetTaskTemplate('daily');
+
+            // 4. Bind delete modal triggers
+            setupConfirmModal();
+
+            // 5. Render list and lucide icons
+            renderTasks();
+            lucide.createIcons();
+
+            // 6. Async-load Google GAPI safely
+            setTimeout(() => {
+                initGoogleClientLibraries();
+            }, 600);
+
+            // 7. GIS poller — runs independently so it doesn't miss the load window
+            const gisPoller = setInterval(() => {
+                if (typeof google !== 'undefined' && google.accounts) {
+                    gisInited = true;
+                    clearInterval(gisPoller);
+                    checkDriveAuthInitReady();
+                }
+            }, 400);
+        };
+    </script>
+</body>
+</html>
