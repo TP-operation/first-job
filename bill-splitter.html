@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bill Splitter Smart ⚡</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Sarabun', sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; }
+  input, select, textarea, button { font-family: inherit; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+
+  .toast-enter { animation: toastIn 0.2s ease forwards; }
+  @keyframes toastIn { from { opacity:0; transform: translateY(-12px) scale(0.96); } to { opacity:1; transform: translateY(0) scale(1); } }
+
+  .modal-enter { animation: modalIn 0.15s ease forwards; }
+  @keyframes modalIn { from { opacity:0; transform: scale(0.94); } to { opacity:1; transform: scale(1); } }
+
+  .btn { cursor: pointer; border: none; transition: all 0.15s; }
+  .btn:active { transform: scale(0.97); }
+
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+  .max-h-48 { max-height: 12rem; }
+  .max-h-24 { max-height: 6rem; }
+  .overflow-y-auto { overflow-y: auto; }
+  .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Grid & Layout */
+  .grid-12 { display: grid; grid-template-columns: repeat(12, 1fr); gap: 0.75rem; }
+  .col-5 { grid-column: span 5; }
+  .col-2 { grid-column: span 2; }
+  .col-3 { grid-column: span 3; }
+
+  @media (max-width: 640px) {
+    .grid-12 > * { grid-column: span 12 !important; }
+    .sm-row { flex-direction: column; }
+    .sm-hidden { display: none; }
+  }
+
+  @media (min-width: 768px) {
+    .md-grid-main { display: grid; grid-template-columns: 7fr 5fr; gap: 1.5rem; }
+  }
+  @media (max-width: 767px) {
+    .md-grid-main { display: flex; flex-direction: column; gap: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ── Lucide icons via UMD ──
+const Icon = ({ name, size = 16, className = '' }) => {
+  const el = useRef(null);
+  useEffect(() => {
+    if (el.current && window.lucide) {
+      el.current.innerHTML = '';
+      const svg = window.lucide.icons[name];
+      if (svg) {
+        const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        s.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        s.setAttribute('width', size);
+        s.setAttribute('height', size);
+        s.setAttribute('viewBox', '0 0 24 24');
+        s.setAttribute('fill', 'none');
+        s.setAttribute('stroke', 'currentColor');
+        s.setAttribute('stroke-width', '2');
+        s.setAttribute('stroke-linecap', 'round');
+        s.setAttribute('stroke-linejoin', 'round');
+        s.innerHTML = svg[2].join('');
+        el.current.appendChild(s);
+      }
+    }
+  }, [name, size]);
+  return <span ref={el} className={className} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center' }} />;
+};
+
+// ── Helpers ──
+const fmt = (n, d = 2) => Number(n).toLocaleString('th-TH', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+function App() {
+  const [eventName, setEventName] = useState('ทริปแสนสนุกกับกลุ่มเพื่อน');
+  const [promptPayIds, setPromptPayIds] = useState({ 'บอมบ์': '0812345678', 'เกรซ': '0898765432' });
+  const [members, setMembers] = useState(['บอมบ์', 'เกรซ', 'นนท์', 'ตูน']);
+  const [newMemberName, setNewMemberName] = useState('');
+
+  const [shops, setShops] = useState([
+    { id: 1, name: 'ชาบูหม้อไฟ (ร้านที่ 1)', vatPercent: 7, serviceChargePercent: 10, discountType: 'fixed', discountValue: 150 },
+    { id: 2, name: 'ของหวานบิงซู (ร้านที่ 2)', vatPercent: 7, serviceChargePercent: 0, discountType: 'percent', discountValue: 10 }
+  ]);
+  const [newShopName, setNewShopName] = useState('');
+  const [newShopVat, setNewShopVat] = useState(0);
+  const [newShopSc, setNewShopSc] = useState(0);
+  const [newShopDiscountType, setNewShopDiscountType] = useState('fixed');
+  const [newShopDiscountValue, setNewShopDiscountValue] = useState(0);
+
+  const [items, setItems] = useState([
+    { id: 1, name: 'เนื้อวากิวและหม้อชาบู', price: 1200, payer: 'บอมบ์', sharedBy: ['บอมบ์','เกรซ','นนท์','ตูน'], shopId: 1 },
+    { id: 2, name: 'น้ำรีฟิลเก๊กฮวย', price: 160, payer: 'บอมบ์', sharedBy: ['บอมบ์','เกรซ','นนท์','ตูน'], shopId: 1 },
+    { id: 3, name: 'บิงซูมะม่วงจานยักษ์', price: 350, payer: 'เกรซ', sharedBy: ['เกรซ','ตูน','นนท์'], shopId: 2 },
+    { id: 4, name: 'โมจิไอศกรีม', price: 120, payer: 'ตูน', sharedBy: ['บอมบ์','ตูน'], shopId: 2 }
+  ]);
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemPrice, setNewItemPrice] = useState('');
+  const [newItemPayer, setNewItemPayer] = useState('บอมบ์');
+  const [newItemShopId, setNewItemShopId] = useState(1);
+  const [newItemShared, setNewItemShared] = useState(['บอมบ์','เกรซ','นนท์','ตูน']);
+
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [selectedSenderForQr, setSelectedSenderForQr] = useState('');
+  const [selectedRecipientForQr, setSelectedRecipientForQr] = useState('');
+  const [selectedAmountForQr, setSelectedAmountForQr] = useState(0);
+  const [expandedMember, setExpandedMember] = useState(null);
+  const [shopModalOpen, setShopModalOpen] = useState(false);
+  const [ioModalOpen, setIoModalOpen] = useState(false);
+  const [cardImageModalOpen, setCardImageModalOpen] = useState(false);
+  const [generatedCardImageUrl, setGeneratedCardImageUrl] = useState('');
+  const [importPasteText, setImportPasteText] = useState('');
+
+  const fileInputRef = useRef(null);
+
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+
+  const showToast = (message, type = 'info') => setToast({ show: true, message, type });
+  useEffect(() => {
+    if (toast.show) { const t = setTimeout(() => setToast({ show:false, message:'', type:'info' }), 3000); return () => clearTimeout(t); }
+  }, [toast.show]);
+
+  const showConfirm = (title, message, onConfirmAction) => {
+    setConfirmModal({ isOpen: true, title, message, onConfirm: () => { onConfirmAction(); setConfirmModal(p => ({ ...p, isOpen: false })); } });
+  };
+
+  useEffect(() => {
+    if (members.length > 0) {
+      if (!newItemPayer || !members.includes(newItemPayer)) setNewItemPayer(members[0]);
+      setNewItemShared([...members]);
+    }
+  }, [members]);
+
+  useEffect(() => {
+    if (shops.length > 0 && !shops.some(s => s.id === newItemShopId)) setNewItemShopId(shops[0].id);
+  }, [shops]);
+
+  // ── QR Handler (was missing) ──
+  const handleOpenQr = (sender, recipient, amount) => {
+    setSelectedSenderForQr(sender);
+    setSelectedRecipientForQr(recipient);
+    setSelectedAmountForQr(amount);
+    setQrModalOpen(true);
+  };
+
+  // ── Export / Import ──
+  const getDataObj = () => ({ version:"1.0", appName:"BillSplitterSmart", eventName, members, promptPayIds, shops, items, exportedAt: new Date().toISOString() });
+
+  const handleExportJSON = () => {
+    try {
+      const str = JSON.stringify(getDataObj(), null, 2);
+      const uri = 'data:application/json;charset=utf-8,' + encodeURIComponent(str);
+      const a = document.createElement('a');
+      a.href = uri;
+      a.download = `${eventName.replace(/[^a-zA-Z0-9ก-๙_-]/g,'_')}_bill_data.json`;
+      a.click();
+      showToast('ดาวน์โหลดไฟล์ JSON สำเร็จ!', 'success');
+    } catch { showToast('เกิดปัญหาในการส่งออกไฟล์', 'error'); }
+  };
+
+  const handleCopyJSON = () => {
+    navigator.clipboard.writeText(JSON.stringify(getDataObj(), null, 2)).then(() => showToast('คัดลอก JSON แล้ว!', 'success')).catch(e => showToast('ล้มเหลว: ' + e.message, 'error'));
+  };
+
+  const loadImportData = (importedData) => {
+    if (!importedData.members || !importedData.shops || !importedData.items) { showToast('รูปแบบ JSON ไม่ถูกต้อง', 'error'); return; }
+    showConfirm('ยืนยันการนำเข้าบิลใหม่', `ต้องการล้างบิลเก่าและนำเข้าข้อมูล "${importedData.eventName || 'ไม่ได้ระบุชื่อ'}" ใช่หรือไม่?`, () => {
+      setEventName(importedData.eventName || 'บิลนำเข้า');
+      setMembers(importedData.members || []);
+      setPromptPayIds(importedData.promptPayIds || {});
+      setShops(importedData.shops || []);
+      setItems(importedData.items || []);
+      setIoModalOpen(false);
+      showToast('นำเข้าข้อมูลเรียบร้อย!', 'success');
+    });
+  };
+
+  const handleImportJSON = (e) => {
+    if (!e.target.files?.length) return;
+    const fr = new FileReader();
+    fr.readAsText(e.target.files[0], 'UTF-8');
+    fr.onload = (ev) => { try { loadImportData(JSON.parse(ev.target.result)); } catch(err) { showToast('อ่านไฟล์ JSON ล้มเหลว: ' + err.message, 'error'); } };
+    e.target.value = null;
+  };
+
+  const handleImportByPaste = () => {
+    try { loadImportData(JSON.parse(importPasteText)); } catch(err) { showToast('รูปแบบ JSON ผิดพลาด: ' + err.message, 'error'); }
+  };
+
+  // ── Members ──
+  const handleAddMember = (e) => {
+    e.preventDefault();
+    const name = newMemberName.trim();
+    if (!name) return;
+    if (members.includes(name)) { showToast('มีชื่อเพื่อนคนนี้อยู่แล้ว', 'error'); return; }
+    setMembers([...members, name]);
+    setNewMemberName('');
+    showToast(`เพิ่มคุณ ${name} เข้ากลุ่มแล้ว!`, 'success');
+  };
+
+  const handleRemoveMember = (name) => {
+    showConfirm('ยืนยันลบเพื่อน', `ต้องการลบคุณ "${name}" ออกจากกลุ่ม?`, () => {
+      setMembers(p => p.filter(m => m !== name));
+      setItems(p => p.map(item => ({
+        ...item,
+        payer: item.payer === name ? (members.find(m => m !== name) || '') : item.payer,
+        sharedBy: item.sharedBy.filter(m => m !== name)
+      })).filter(item => item.sharedBy.length > 0 && item.payer !== ''));
+      showToast(`ลบคุณ ${name} แล้ว`, 'success');
+    });
+  };
+
+  // ── Shops ──
+  const handleAddShop = (e) => {
+    e.preventDefault();
+    const name = newShopName.trim();
+    if (!name) { showToast('กรุณากรอกชื่อร้านค้า', 'error'); return; }
+    setShops([...shops, { id: Date.now(), name, vatPercent: Math.max(0, parseFloat(newShopVat)||0), serviceChargePercent: Math.max(0, parseFloat(newShopSc)||0), discountType: newShopDiscountType, discountValue: Math.max(0, parseFloat(newShopDiscountValue)||0) }]);
+    setNewShopName(''); setNewShopVat(0); setNewShopSc(0); setNewShopDiscountValue(0);
+    setShopModalOpen(false);
+    showToast(`เพิ่มร้าน "${name}" แล้ว!`, 'success');
+  };
+
+  const handleRemoveShop = (id, name) => {
+    if (shops.length <= 1) { showToast('ต้องมีร้านค้าอย่างน้อย 1 ร้าน', 'error'); return; }
+    showConfirm('ยืนยันลบร้านค้า', `ต้องการลบ "${name}"? เมนูทั้งหมดของร้านนี้จะถูกลบด้วย`, () => {
+      setShops(shops.filter(s => s.id !== id));
+      setItems(items.filter(item => item.shopId !== id));
+      showToast(`ลบร้าน "${name}" แล้ว`, 'success');
+    });
+  };
+
+  // ── Items ──
+  const handleAddItem = (e) => {
+    e.preventDefault();
+    if (!newItemName.trim() || !newItemPrice || parseFloat(newItemPrice) <= 0) { showToast('กรอกรายละเอียดและราคาให้ถูกต้อง', 'error'); return; }
+    if (!newItemPayer) { showToast('กรุณาเลือกผู้จ่ายสำรอง', 'error'); return; }
+    if (newItemShared.length === 0) { showToast('เลือกอย่างน้อย 1 คนเพื่อหาร', 'error'); return; }
+    setItems([...items, { id: Date.now(), name: newItemName.trim(), price: parseFloat(newItemPrice), payer: newItemPayer, shopId: parseInt(newItemShopId), sharedBy: [...newItemShared] }]);
+    setNewItemName(''); setNewItemPrice(''); setNewItemShared([...members]);
+    showToast('บันทึกเมนูสำเร็จ!', 'success');
+  };
+
+  const handleRemoveItem = (id) => { setItems(items.filter(item => item.id !== id)); showToast('ลบรายการแล้ว', 'success'); };
+
+  const toggleShareNew = (name) => setNewItemShared(p => p.includes(name) ? p.filter(m => m !== name) : [...p, name]);
+  const toggleShareExisting = (itemId, name) => {
+    setItems(items.map(item => {
+      if (item.id !== itemId) return item;
+      const shared = item.sharedBy.includes(name) ? item.sharedBy.filter(m => m !== name) : [...item.sharedBy, name];
+      return { ...item, sharedBy: shared };
+    }).filter(item => item.sharedBy.length > 0));
+  };
+  const changePayerExisting = (itemId, payer) => setItems(items.map(item => item.id === itemId ? { ...item, payer } : item));
+
+  // ── Core Calculation ──
+  const shopCalculations = shops.map(shop => {
+    const shopItems = items.filter(item => item.shopId === shop.id);
+    const rawSubtotal = shopItems.reduce((sum, item) => sum + item.price, 0);
+    const serviceChargeTotal = rawSubtotal * (shop.serviceChargePercent / 100);
+    let discountTotal = shop.discountType === 'percent' ? rawSubtotal * (shop.discountValue / 100) : shop.discountValue;
+    discountTotal = Math.min(discountTotal, rawSubtotal);
+    const subtotalAfterDiscount = rawSubtotal - discountTotal;
+    const vatTotal = Math.max(0, subtotalAfterDiscount + serviceChargeTotal) * (shop.vatPercent / 100);
+    const finalTotal = Math.max(0, subtotalAfterDiscount + serviceChargeTotal + vatTotal);
+    const multiplier = rawSubtotal > 0 ? finalTotal / rawSubtotal : 0;
+    const memberFinalOwed = {};
+    members.forEach(m => memberFinalOwed[m] = 0);
+    shopItems.forEach(item => {
+      const n = item.sharedBy.length;
+      if (n > 0) item.sharedBy.forEach(person => { if (memberFinalOwed[person] !== undefined) memberFinalOwed[person] += (item.price / n) * multiplier; });
+    });
+    return { shopId: shop.id, shopName: shop.name, rawSubtotal, serviceChargeTotal, discountTotal, vatTotal, finalTotal, multiplier, memberFinalOwed };
+  });
+
+  const globalRawSubtotal = items.reduce((sum, i) => sum + i.price, 0);
+  const globalGrandTotal = shopCalculations.reduce((sum, s) => sum + s.finalTotal, 0);
+
+  const memberTotalOwed = {};
+  members.forEach(m => memberTotalOwed[m] = shopCalculations.reduce((sum, s) => sum + (s.memberFinalOwed[m] || 0), 0));
+
+  const memberTotalPaid = {};
+  members.forEach(m => memberTotalPaid[m] = 0);
+  items.forEach(item => {
+    const sc = shopCalculations.find(s => s.shopId === item.shopId);
+    if (memberTotalPaid[item.payer] !== undefined) memberTotalPaid[item.payer] += item.price * (sc ? sc.multiplier : 1);
+  });
+
+  const memberBalances = {};
+  members.forEach(m => memberBalances[m] = (memberTotalPaid[m] || 0) - (memberTotalOwed[m] || 0));
+
+  const getTransactions = () => {
+    let creditors = [], debtors = [];
+    Object.keys(memberBalances).forEach(name => {
+      const bal = memberBalances[name];
+      if (bal > 0.01) creditors.push({ name, amount: bal });
+      else if (bal < -0.01) debtors.push({ name, amount: Math.abs(bal) });
+    });
+    creditors.sort((a,b) => b.amount - a.amount);
+    debtors.sort((a,b) => b.amount - a.amount);
+    const txs = [];
+    let ci = 0, di = 0;
+    while (ci < creditors.length && di < debtors.length) {
+      const c = creditors[ci], d = debtors[di];
+      const amt = Math.min(c.amount, d.amount);
+      if (amt > 0.01) txs.push({ from: d.name, to: c.name, amount: amt });
+      c.amount -= amt; d.amount -= amt;
+      if (c.amount < 0.01) ci++;
+      if (d.amount < 0.01) di++;
+    }
+    return txs;
+  };
+  const transactions = getTransactions();
+
+  const memberCalculations = members.map(name => {
+    const finalOwed = memberTotalOwed[name] || 0;
+    const paid = memberTotalPaid[name] || 0;
+    const netBalance = memberBalances[name] || 0;
+    const itemBreakdown = items.filter(item => item.sharedBy.includes(name)).map(item => {
+      const shopObj = shops.find(s => s.id === item.shopId);
+      const sc = shopCalculations.find(s => s.shopId === item.shopId);
+      return { name: item.name, shopName: shopObj ? shopObj.name : 'ทั่วไป', shareCount: item.sharedBy.length, finalShareCost: (item.price / item.sharedBy.length) * (sc ? sc.multiplier : 1) };
+    });
+    return { name, finalOwed, paid, netBalance, items: itemBreakdown, transferTos: transactions.filter(t => t.from === name), receiveFroms: transactions.filter(t => t.to === name) };
+  });
+
+  // ── Canvas Card ──
+  const drawRR = (ctx, x, y, w, h, r, fill, stroke = null) => {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath(); ctx.fill();
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
+  };
+
+  const handleRenderCard = () => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const shopH = shops.length * 45;
+    const txH = Math.max(1, transactions.length) * 75;
+    const totalH = 360 + shopH + txH + 80;
+    canvas.width = 640; canvas.height = totalH;
+
+    const g = ctx.createLinearGradient(0,0,0,totalH);
+    g.addColorStop(0,'#0f172a'); g.addColorStop(0.5,'#1e293b'); g.addColorStop(1,'#0f172a');
+    ctx.fillStyle = g; ctx.fillRect(0,0,640,totalH);
+    ctx.fillStyle = 'rgba(20,184,166,0.08)'; ctx.beginPath(); ctx.arc(80,120,180,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(6,182,212,0.08)'; ctx.beginPath(); ctx.arc(560,totalH-120,220,0,Math.PI*2); ctx.fill();
+
+    drawRR(ctx,40,40,560,totalH-80,28,'#ffffff');
+
+    ctx.fillStyle='#0f172a'; ctx.font='bold 26px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(eventName||'สรุปยอดบิล',320,100);
+    ctx.fillStyle='#64748b'; ctx.font='13px sans-serif';
+    ctx.fillText('บิลค่าอาหารสำรองจ่ายและหักล้างหนี้เรียบร้อย ⚡',320,130);
+    ctx.strokeStyle='#f1f5f9'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(80,150); ctx.lineTo(560,150); ctx.stroke();
+
+    drawRR(ctx,80,170,480,95,20,'#f0fdfa');
+    ctx.fillStyle='#0d9488'; ctx.font='bold 12px sans-serif';
+    ctx.fillText('ยอดรวมบิลสุทธิสะสมทุกร้านค้า (รวมภาษีและลดแล้ว)',320,198);
+    ctx.fillStyle='#0f172a'; ctx.font='bold 34px sans-serif';
+    ctx.fillText(`฿${fmt(globalGrandTotal)}`,320,242);
+
+    let y = 295;
+    ctx.fillStyle='#334155'; ctx.font='bold 14px sans-serif'; ctx.textAlign='left';
+    ctx.fillText('🏬 สรุปรายละเอียดรายร้านค้า:',80,y); y+=20;
+
+    shopCalculations.forEach(sc => {
+      const shopObj = shops.find(s => s.id === sc.shopId);
+      drawRR(ctx,80,y,480,34,8,'#f8fafc');
+      ctx.fillStyle='#475569'; ctx.font='bold 12px sans-serif'; ctx.textAlign='left';
+      ctx.fillText(sc.shopName,95,y+21);
+      ctx.fillStyle='#0f172a'; ctx.font='bold 12px sans-serif'; ctx.textAlign='right';
+      ctx.fillText(`฿${fmt(sc.finalTotal)}`,545,y+21);
+      y+=42;
+    });
+    y+=15;
+
+    ctx.fillStyle='#334155'; ctx.font='bold 15px sans-serif'; ctx.textAlign='left';
+    ctx.fillText('⚡ แผนภาพการเคลียร์โอนเงิน:',80,y); y+=20;
+
+    if (transactions.length === 0) {
+      drawRR(ctx,80,y,480,70,14,'#f0fdf4');
+      ctx.fillStyle='#10b981'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('ยอดเคลียร์สมบูรณ์แล้ว ไม่มียอดค้างโอน! 🎉',320,y+41); y+=85;
+    } else {
+      transactions.forEach(t => {
+        drawRR(ctx,80,y,480,62,14,'#f8fafc');
+        ctx.fillStyle='#e2e8f0'; ctx.beginPath(); ctx.arc(115,y+31,17,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#475569'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
+        ctx.fillText(t.from.charAt(0),115,y+35);
+        ctx.fillStyle='#334155'; ctx.font='bold 13px sans-serif'; ctx.textAlign='left';
+        ctx.fillText(t.from,145,y+36);
+        ctx.fillStyle='#94a3b8'; ctx.font='11px sans-serif';
+        const fw = ctx.measureText(t.from).width;
+        ctx.fillText('โอนให้',145+fw+6,y+36);
+        ctx.fillStyle='#0d9488'; ctx.font='bold 13px sans-serif';
+        ctx.fillText(t.to,145+fw+46,y+36);
+        if (promptPayIds[t.to]) {
+          ctx.fillStyle='#94a3b8'; ctx.font='9px sans-serif';
+          const tw2 = ctx.measureText(t.to).width;
+          ctx.fillText(`(พร้อมเพย์: ${promptPayIds[t.to]})`,145+fw+50+tw2+6,y+36);
+        }
+        ctx.fillStyle='#0f172a'; ctx.font='bold 15px sans-serif'; ctx.textAlign='right';
+        ctx.fillText(`฿${fmt(t.amount)}`,535,y+36);
+        y+=72;
+      });
+    }
+
+    let py = y+15;
+    ctx.fillStyle='#334155'; ctx.font='bold 15px sans-serif'; ctx.textAlign='left';
+    ctx.fillText('💰 ตารางสรุปเงินสำรองจ่ายสุทธิ:',80,py); py+=22;
+    ctx.font='12px sans-serif'; ctx.fillStyle='#64748b';
+    const payerDetails = members.filter(m => memberTotalPaid[m] > 0).map(m => `${m}: ฿${fmt(memberTotalPaid[m])}`).join('  |  ');
+    ctx.fillText(payerDetails || 'ไม่มีข้อมูลสำรองจ่าย',85,py);
+
+    ctx.fillStyle='#94a3b8'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('สร้างด้วยระบบคำนวณหักลบกลบหนี้อัจฉริยะ',320,totalH-50);
+
+    try {
+      setGeneratedCardImageUrl(canvas.toDataURL('image/png'));
+      setCardImageModalOpen(true);
+      showToast('สร้างการ์ดบิลเสร็จแล้ว!', 'success');
+    } catch(err) { showToast('เกิดข้อผิดพลาด: ' + err.message, 'error'); }
+  };
+
+  const handleReset = () => showConfirm('ยืนยันการล้างข้อมูลบิล','ต้องการล้างรายการทั้งหมดเพื่อเริ่มใหม่? (รายชื่อเพื่อนและร้านค้าจะยังคงอยู่)', () => { setItems([]); showToast('ล้างข้อมูลแล้ว', 'success'); });
+
+  // ── Styles ──
+  const s = {
+    card: { background:'#fff', borderRadius:16, padding:20, boxShadow:'0 1px 3px rgba(0,0,0,0.06)', border:'1px solid #f1f5f9', marginBottom: 0 },
+    input: { width:'100%', padding:'7px 12px', border:'1px solid #e2e8f0', borderRadius:10, fontSize:13, outline:'none', fontFamily:'inherit' },
+    select: { width:'100%', padding:'7px 8px', border:'1px solid #e2e8f0', borderRadius:10, fontSize:12, outline:'none', background:'#fff', fontFamily:'inherit', fontWeight:600 },
+    btnPrimary: { background:'#1e293b', color:'#fff', padding:'8px 16px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer', border:'none', display:'flex', alignItems:'center', gap:6, transition:'all 0.15s' },
+    btnTeal: { background:'#14b8a6', color:'#fff', padding:'8px 16px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer', border:'none', display:'flex', alignItems:'center', gap:6, transition:'all 0.15s' },
+    btnGhost: { background:'rgba(255,255,255,0.15)', color:'#fff', padding:'6px 12px', borderRadius:8, fontWeight:600, fontSize:13, cursor:'pointer', border:'none', display:'flex', alignItems:'center', gap:6, transition:'all 0.15s' },
+    label: { display:'block', fontSize:11, fontWeight:700, color:'#64748b', marginBottom:4 },
+    chip: (active) => ({ padding:'4px 10px', borderRadius:8, fontSize:11, fontWeight:700, cursor:'pointer', border: active?'1px solid #5eead4':'1px solid #e2e8f0', background: active?'#ccfbf1':'#fff', color: active?'#0d9488':'#64748b', display:'flex', alignItems:'center', gap:4, transition:'all 0.12s' }),
+    sectionTitle: { fontSize:14, fontWeight:800, color:'#334155', display:'flex', alignItems:'center', gap:8, marginBottom:12 },
+    tag: { background:'#f0fdfa', color:'#0d9488', fontSize:10, padding:'2px 8px', borderRadius:99, fontWeight:700 },
+    modalOverlay: { position:'fixed', inset:0, background:'rgba(15,23,42,0.65)', backdropFilter:'blur(4px)', zIndex:50, display:'flex', alignItems:'center', justifyContent:'center', padding:16 },
+    modalBox: { background:'#fff', width:'100%', maxWidth:440, borderRadius:20, padding:24, boxShadow:'0 20px 60px rgba(0,0,0,0.3)', position:'relative', animation:'modalIn 0.15s ease', maxHeight:'90vh', display:'flex', flexDirection:'column' },
+  };
+
+  const inF = (el) => { if(el) { el.style.borderColor='#14b8a6'; el.style.boxShadow='0 0 0 3px rgba(20,184,166,0.15)'; } };
+  const outF = (el) => { if(el) { el.style.borderColor='#e2e8f0'; el.style.boxShadow='none'; } };
+
+  // ─────────────────────────────────────────────────────────
+  return (
+    <div style={{ minHeight:'100vh', background:'#f8fafc', fontFamily:"'Sarabun', sans-serif", paddingBottom:48 }}>
+      <input type="file" ref={fileInputRef} onChange={handleImportJSON} accept=".json" style={{ display:'none' }} />
+
+      {/* TOAST */}
+      {toast.show && (
+        <div className="toast-enter" style={{ position:'fixed', top:76, right:16, zIndex:100, display:'flex', alignItems:'center', gap:8, padding:'10px 16px', borderRadius:12, background:'#fff', border:'1px solid #f1f5f9', boxShadow:'0 4px 24px rgba(0,0,0,0.12)' }}>
+          {toast.type==='success' && <span style={{color:'#10b981',fontSize:16}}>✓</span>}
+          {toast.type==='error' && <span style={{color:'#ef4444',fontSize:16}}>⚠</span>}
+          {toast.type==='info' && <span style={{color:'#3b82f6',fontSize:16}}>ℹ</span>}
+          <span style={{ fontSize:12, fontWeight:700, color:'#334155' }}>{toast.message}</span>
+        </div>
+      )}
+
+      {/* CONFIRM MODAL */}
+      {confirmModal.isOpen && (
+        <div style={s.modalOverlay}>
+          <div className="modal-enter" style={{ ...s.modalBox, maxWidth:360 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, color:'#ef4444', marginBottom:10 }}>
+              <span style={{fontSize:20}}>⚠️</span>
+              <h3 style={{ fontSize:16, fontWeight:800, color:'#1e293b' }}>{confirmModal.title}</h3>
+            </div>
+            <p style={{ fontSize:13, color:'#64748b', marginBottom:20, lineHeight:1.6 }}>{confirmModal.message}</p>
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={() => setConfirmModal(p=>({...p,isOpen:false}))} style={{ flex:1, background:'#f1f5f9', color:'#475569', border:'none', padding:'9px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer' }}>ยกเลิก</button>
+              <button onClick={confirmModal.onConfirm} style={{ flex:1, background:'#ef4444', color:'#fff', border:'none', padding:'9px', borderRadius:10, fontWeight:700, fontSize:12, cursor:'pointer' }}>ตกลง ยืนยัน</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SHOP MODAL */}
+      {shopModalOpen && (
+        <div style={s.modalOverlay}>
+          <div className="modal-enter" style={{ ...s.modalBox, overflowY:'auto' }}>
+            <button onClick={() => setShopModalOpen(false)} style={{ position:'absolute', right:16, top:16, background:'none', border:'none', fontSize:18, color:'#94a3b8', cursor:'pointer' }}>✕</button>
+            <div style={{ ...s.sectionTitle, fontSize:16, marginBottom:16 }}>🏬 เพิ่มร้านค้า / กิจกรรมใหม่</div>
+            <form onSubmit={handleAddShop} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+              <div>
+                <label style={s.label}>ชื่อร้านค้าหรือกิจกรรม</label>
+                <input required value={newShopName} onChange={e=>setNewShopName(e.target.value)} placeholder="เช่น ร้านหมูกระทะ, บาร์ค็อกเทล" style={s.input} onFocus={e=>inF(e.target)} onBlur={e=>outF(e.target)} />
+              </div>
+              <div style={{ background:'#f8fafc', borderRadius:12, padding:12, border:'1px solid #f1f5f9' }}>
+                <label style={s.label}>ส่วนลด (หักจากราคาดิบ)</label>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
+                  {['fixed','percent'].map(type => (
+                    <button type="button" key={type} onClick={()=>setNewShopDiscountType(type)} style={{ padding:'6px', borderRadius:8, fontSize:11, fontWeight:700, cursor:'pointer', border: newShopDiscountType===type?'1px solid #14b8a6':'1px solid #e2e8f0', background: newShopDiscountType===type?'#ccfbf1':'#fff', color: newShopDiscountType===type?'#0d9488':'#64748b' }}>
+                      {type==='fixed'?'หักเป็นบาท (฿)':'หักเป็น % '}
+                    </button>
+                  ))}
+                </div>
+                <input type="number" value={newShopDiscountValue||''} onChange={e=>setNewShopDiscountValue(Math.max(0,parseFloat(e.target.value)||0))} placeholder={newShopDiscountType==='fixed'?'จำนวนเงินส่วนลด':'% ส่วนลด'} style={s.input} onFocus={e=>inF(e.target)} onBlur={e=>outF(e.target)} />
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div>
+                  <label style={s.label}>Service Charge (%)</label>
+                  <input type="number" value={newShopSc||''} onChange={e=>setNewShopSc(Math.max(0,parseFloat(e.target.value)||0))} placeholder="0" style={s.input} onFocus={e=>inF(e.target)} onBlur={e=>outF(e.target)} />
+                </div>
+                <div>
+                  <label style={s.label}>VAT (%)</label>
+                  <input type="number" value={newShopVat||''} onChange={e=>setNewShopVat(Math.max(0,parseFloat(e.target.value)||0))} placeholder="0" style={s.input} onFocus={e=>inF(e.target)} onBlur={e=>outF(e.target)} />
+                </div>
+              </div>
+              <button type="submit" style={{ ...s.btnPrimary, justifyContent:'center', padding:'10px' }}>บันทึกร้านค้า</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* IO MODAL */}
+      {ioModalOpen && (
+        <div style={s.modalOverlay}>
+          <div className="modal-enter" style={{ ...s.modalBox, overflowY:'auto' }}>
+            <button onClick={()=>setIoModalOpen(false)} style={{ position:'absolute', right:16, top:16, background:'none', border:'none', fontSize:18, color:'#94a3b8', cursor:'pointer' }}>✕</button>
+            <div style={{ ...s.sectionTitle, fontSize:16, marginBottom:4 }}>📁 นำเข้า / ส่งออกไฟล์บิล</div>
+            <p style={{ fontSize:11, color:'#94a3b8', marginBottom:16 }}>บันทึกและแชร์ข้อมูลบิลในรูปแบบ JSON</p>
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <div style={{ background:'#f8fafc', borderRadius:12, padding:12, border:'1px solid #f1f5f9' }}>
+                <p style={{ fontSize:11, fontWeight:800, color:'#334155', marginBottom:8 }}>ดาวน์โหลด / ส่งออก</p>
+                <button onClick={handleExportJSON} style={{ ...s.btnTeal, justifyContent:'center', width:'100%' }}>⬇️ ดาวน์โหลดไฟล์บิล (.json)</button>
+              </div>
+              <div style={{ background:'#f8fafc', borderRadius:12, padding:12, border:'1px solid #f1f5f9' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                  <span style={{ fontSize:11, fontWeight:700, color:'#475569' }}>ข้อความ JSON (สำหรับคัดลอก)</span>
+                  <button onClick={handleCopyJSON} style={{ ...s.btnPrimary, padding:'4px 10px', fontSize:10 }}>📋 คัดลอก</button>
+                </div>
+                <textarea readOnly value={JSON.stringify({eventName,members,promptPayIds,shops,items},null,2)} style={{ width:'100%', height:80, border:'1px solid #e2e8f0', borderRadius:8, padding:8, fontSize:10, fontFamily:'monospace', resize:'none', outline:'none', background:'#fff' }} />
+              </div>
+              <div style={{ background:'#f8fafc', borderRadius:12, padding:12, border:'1px solid #f1f5f9' }}>
+                <p style={{ fontSize:11, fontWeight:800, color:'#334155', marginBottom:8 }}>นำเข้าข้อมูล</p>
+                <button onClick={()=>fileInputRef.current.click()} style={{ ...s.btnPrimary, justifyContent:'center', width:'100%', marginBottom:10 }}>📂 เลือกไฟล์ JSON</button>
+                <label style={s.label}>หรือวางข้อความ JSON ตรงนี้:</label>
+                <textarea value={importPasteText} onChange={e=>setImportPasteText(e.target.value)} placeholder="วางข้อความ JSON แล้วกดโหลด..." style={{ width:'100%', height:60, border:'1px solid #e2e8f0', borderRadius:8, padding:8, fontSize:10, fontFamily:'monospace', resize:'none', outline:'none', background:'#fff', marginBottom:6 }} />
+                <button onClick={handleImportByPaste} style={{ ...s.btnTeal, justifyContent:'center', width:'100%' }}>โหลดจากข้อความที่วาง</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CARD IMAGE MODAL */}
+      {cardImageModalOpen && generatedCardImageUrl && (
+        <div style={s.modalOverlay}>
+          <div className="modal-enter" style={{ ...s.modalBox, maxWidth:520, overflowY:'auto' }}>
+            <button onClick={()=>setCardImageModalOpen(false)} style={{ position:'absolute', right:16, top:16, background:'#f1f5f9', border:'none', borderRadius:99, width:28, height:28, fontSize:14, color:'#475569', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+            <div style={{ ...s.sectionTitle, fontSize:15, marginBottom:4 }}>🖼️ การ์ดสรุปยอดโอน</div>
+            <p style={{ fontSize:11, color:'#94a3b8', marginBottom:12 }}>กดค้างที่รูปเพื่อบันทึก (มือถือ) หรือคลิกขวา → Save Image (คอมพิวเตอร์)</p>
+            <div style={{ background:'#f1f5f9', borderRadius:14, padding:8, marginBottom:12, display:'flex', justifyContent:'center' }}>
+              <img src={generatedCardImageUrl} alt="สรุปบิล" style={{ width:'100%', borderRadius:10, boxShadow:'0 2px 12px rgba(0,0,0,0.1)' }} title="กดค้างหรือคลิกขวาเพื่อบันทึกภาพ" />
+            </div>
+            <div style={{ background:'#f0fdfa', border:'1px solid #ccfbf1', borderRadius:12, padding:12, fontSize:11, color:'#0f766e', marginBottom:12 }}>
+              💡 <strong>มือถือ:</strong> กดค้างที่รูปแล้วเลือก "บันทึกรูปภาพ" &nbsp;|&nbsp; <strong>คอมฯ:</strong> คลิกขวา → "Save Image As"
+            </div>
+            <button onClick={()=>setCardImageModalOpen(false)} style={{ ...s.btnPrimary, justifyContent:'center', width:'100%', padding:10 }}>ปิดหน้าต่าง</button>
+          </div>
+        </div>
+      )}
+
+      {/* QR MODAL */}
+      {qrModalOpen && selectedRecipientForQr && (
+        <div style={s.modalOverlay}>
+          <div className="modal-enter" style={{ ...s.modalBox, maxWidth:360 }}>
+            <h3 style={{ fontSize:16, fontWeight:800, textAlign:'center', marginBottom:4 }}>สแกนจ่ายพร้อมเพย์</h3>
+            <p style={{ fontSize:11, color:'#64748b', textAlign:'center', marginBottom:16 }}>
+              <strong>{selectedSenderForQr}</strong> ➡️ โอนให้ <strong style={{color:'#0d9488'}}>{selectedRecipientForQr}</strong>
+            </p>
+            <div style={{ background:'#f0fdfa', borderRadius:12, padding:16, textAlign:'center', marginBottom:16 }}>
+              <div style={{ fontSize:28, fontWeight:900, color:'#0d9488' }}>฿{fmt(selectedAmountForQr)}</div>
+              <div style={{ fontSize:10, color:'#0d9488', marginTop:4 }}>พร้อมเพย์: {promptPayIds[selectedRecipientForQr]}</div>
+            </div>
+            <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:12, padding:16, display:'flex', flexDirection:'column', alignItems:'center', marginBottom:16 }}>
+              <img src={`https://promptpay.io/${(promptPayIds[selectedRecipientForQr]||'').replace(/-/g,'').trim()}/${parseFloat(selectedAmountForQr).toFixed(2)}.png`}
+                alt="QR พร้อมเพย์" style={{ width:180, height:180, borderRadius:8 }}
+                onError={e=>{ e.target.onerror=null; e.target.src='https://placehold.co/180x180?text=QR+Error'; }} />
+              <p style={{ fontSize:10, color:'#94a3b8', marginTop:8, textAlign:'center' }}>สแกนด้วยแอปธนาคาร ยอดเงินจะกรอกอัตโนมัติ</p>
+            </div>
+            <button onClick={()=>setQrModalOpen(false)} style={{ ...s.btnPrimary, justifyContent:'center', width:'100%', padding:10 }}>ปิดหน้าต่าง</button>
+          </div>
+        </div>
+      )}
+
+      {/* HEADER */}
+      <header style={{ background:'linear-gradient(135deg, #14b8a6 0%, #06b6d4 100%)', color:'#fff', padding:'14px 16px', position:'sticky', top:0, zIndex:10, boxShadow:'0 2px 16px rgba(20,184,166,0.3)' }}>
+        <div style={{ maxWidth:1100, margin:'0 auto', display:'flex', flexWrap:'wrap', justifyContent:'space-between', alignItems:'center', gap:12 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <div style={{ background:'rgba(255,255,255,0.2)', padding:'8px', borderRadius:12 }}>🍽️</div>
+            <div>
+              <input value={eventName} onChange={e=>setEventName(e.target.value)} style={{ background:'transparent', border:'none', borderBottom:'1px dashed rgba(255,255,255,0.5)', color:'#fff', fontSize:18, fontWeight:800, outline:'none', fontFamily:'inherit', width:280, maxWidth:'100%' }} placeholder="ชื่อทริป/มื้ออาหาร..." />
+              <p style={{ fontSize:11, color:'rgba(255,255,255,0.8)', marginTop:2 }}>ระบบหักหนี้แยกรายร้านค้า + SC/VAT/ส่วนลด ⚡</p>
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button onClick={()=>setIoModalOpen(true)} style={s.btnGhost}>📁 นำเข้า/นำออก</button>
+            <button onClick={handleReset} style={s.btnGhost}>🔄 เคลียร์บิล</button>
+            <button onClick={handleRenderCard} style={{ ...s.btnGhost, background:'rgba(255,255,255,0.25)', fontWeight:800 }}>🖼️ เซฟการ์ด</button>
+          </div>
+        </div>
+      </header>
+
+      {/* MAIN */}
+      <main style={{ maxWidth:1100, margin:'0 auto', padding:'20px 16px' }}>
+        <div className="md-grid-main">
+
+          {/* LEFT COL */}
+          <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+
+            {/* MEMBERS */}
+            <div style={s.card}>
+              <div style={s.sectionTitle}>👥 1. รายชื่อปาร์ตี้ & พร้อมเพย์</div>
+              <form onSubmit={handleAddMember} style={{ display:'flex', gap:8, marginBottom:14 }}>
+                <input value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="พิมพ์ชื่อเพื่อน..." maxLength={15} style={{ ...s.input, flex:1 }} onFocus={e=>inF(e.target)} onBlur={e=>outF(e.target)} />
+                <button type="submit" style={s.btnTeal}>+ เพิ่ม</button>
+              </form>
+              <div style={{ maxHeight:200, overflowY:'auto', display:'flex', flexDirection:'column', gap:8 }}>
+                {members.map(name => (
+                  <div key={name} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'8px 10px', background:'#f8fafc', borderRadius:10, border:'1px solid #f1f5f9' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <button onClick={()=>handleRemoveMember(name)} style={{ background:'none', border:'none', cursor:'pointer', color:'#cbd5e1', fontSize:12, padding:2 }} title="ลบ">🗑</button>
+                      <span style={{ fontSize:12, fontWeight:700, color:'#334155' }}>{name}</span>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <span style={{ fontSize:10, color:'#94a3b8', whiteSpace:'nowrap' }}>พร้อมเพย์:</span>
+                      <input value={promptPayIds[name]||''} onChange={e=>setPromptPayIds({...promptPayIds,[name]:e.target.value})} placeholder="เบอร์/เลขบัญชี" style={{ ...s.input, width:140, fontSize:11, fontFamily:'monospace', padding:'4px 8px' }} onFocus={e=>inF(e.target)} onBlur={e=>outF(e.target)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* SHOPS */}
+            <div style={s.card}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                <div style={s.sectionTitle}>🏬 2. ร้านค้า / กิจกรรม</div>
+                <button onClick={()=>setShopModalOpen(true)} style={{ ...s.btnTeal, padding:'6px 12px', fontSize:11 }}>+ เพิ่มร้าน</button>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:10, maxHeight:200, overflowY:'auto' }}>
+                {shops.map(shop => (
+                  <div key={shop.id} style={{ padding:12, background:'#f8fafc', borderRadius:12, border:'1px solid #f1f5f9', position:'relative' }}>
+                    <button onClick={()=>handleRemoveShop(shop.id,shop.name)} style={{ position:'absolute', right:8, top:8, background:'none', border:'none', cursor:'pointer', color:'#cbd5e1', fontSize:11 }} title="ลบ">✕</button>
+                    <p style={{ fontSize:11, fontWeight:800, color:'#1e293b', paddingRight:16, marginBottom:8 }}>{shop.name}</p>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:4 }}>
+                      {[['SC',`${shop.serviceChargePercent}%`],['VAT',`${shop.vatPercent}%`],['ลด',shop.discountValue>0?`${shop.discountValue}${shop.discountType==='percent'?'%':'฿'}`:'-']].map(([k,v]) => (
+                        <div key={k} style={{ background:'#fff', border:'1px solid #f1f5f9', borderRadius:6, padding:4, textAlign:'center' }}>
+                          <div style={{ fontSize:9, color:'#94a3b8', fontWeight:700 }}>{k}</div>
+                          <div style={{ fontSize:11, fontWeight:700, color:'#334155' }}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ADD ITEM */}
+            <div style={s.card}>
+              <div style={s.sectionTitle}>🧾 3. บันทึกรายการบิล</div>
+              <form onSubmit={handleAddItem} style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                <div className="grid-12">
+                  <div className="col-5">
+                    <label style={s.label}>ชื่อรายการ</label>
+                    <input required value={newItemName} onChange={e=>setNewItemName(e.target.value)} placeholder="เช่น เซ็ตหมูสามชั้น" style={s.input} onFocus={e=>inF(e.target)} onBlur={e=>outF(e.target)} />
+                  </div>
+                  <div className="col-2">
+                    <label style={s.label}>ราคา (฿)</label>
+                    <input type="number" required value={newItemPrice} onChange={e=>setNewItemPrice(e.target.value)} placeholder="0.00" min="0.1" step="any" style={{ ...s.input, fontFamily:'monospace' }} onFocus={e=>inF(e.target)} onBlur={e=>outF(e.target)} />
+                  </div>
+                  <div className="col-3">
+                    <label style={s.label}>ผู้สำรองจ่าย</label>
+                    <select value={newItemPayer} onChange={e=>setNewItemPayer(e.target.value)} style={s.select}>
+                      {members.map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ gridColumn:'span 2' }}>
+                    <label style={s.label}>ร้านค้า</label>
+                    <select value={newItemShopId} onChange={e=>setNewItemShopId(parseInt(e.target.value))} style={s.select}>
+                      {shops.map(sh => <option key={sh.id} value={sh.id}>{sh.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                    <label style={s.label}>ใครกินเมนูนี้? ({newItemShared.length} คน)</label>
+                    <div style={{ display:'flex', gap:6 }}>
+                      <button type="button" onClick={()=>setNewItemShared([...members])} style={{ fontSize:9, background:'#f1f5f9', border:'none', borderRadius:6, padding:'3px 8px', cursor:'pointer', fontWeight:700, color:'#475569' }}>ทุกคน</button>
+                      <button type="button" onClick={()=>setNewItemShared([])} style={{ fontSize:9, background:'#f1f5f9', border:'none', borderRadius:6, padding:'3px 8px', cursor:'pointer', fontWeight:700, color:'#475569' }}>ล้าง</button>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:6, padding:10, background:'#f8fafc', borderRadius:10, border:'1px solid #f1f5f9', minHeight:42 }}>
+                    {members.map(name => (
+                      <button type="button" key={name} onClick={()=>toggleShareNew(name)} style={s.chip(newItemShared.includes(name))}>
+                        {newItemShared.includes(name) && '✓ '}{name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="submit" style={{ ...s.btnPrimary, justifyContent:'center', padding:10 }}>+ เพิ่มเมนูนี้ลงบิล</button>
+              </form>
+            </div>
+
+            {/* ITEMS LIST */}
+            <div style={s.card}>
+              <div style={s.sectionTitle}>🍽️ รายการทั้งหมด ({items.length} รายการ)</div>
+              {items.length === 0 ? (
+                <div style={{ textAlign:'center', padding:'32px 0', color:'#94a3b8', border:'2px dashed #f1f5f9', borderRadius:12 }}>
+                  <div style={{ fontSize:32, marginBottom:8 }}>🍽️</div>
+                  <p style={{ fontSize:12 }}>ยังไม่มีรายการ กรุณาเพิ่มรายการด้านบน</p>
+                </div>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:10, maxHeight:380, overflowY:'auto' }}>
+                  {items.map(item => {
+                    const shopObj = shops.find(s => s.id === item.shopId);
+                    return (
+                      <div key={item.id} style={{ padding:12, background:'#f8fafc', borderRadius:12, border:'1px solid #f1f5f9' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                              <span style={{ fontSize:12, fontWeight:800, color:'#1e293b' }}>{item.name}</span>
+                              <span style={s.tag}>🏬 {shopObj?.name||'ทั่วไป'}</span>
+                            </div>
+                            <div style={{ fontSize:10, color:'#64748b', marginTop:4, display:'flex', flexWrap:'wrap', gap:6, alignItems:'center' }}>
+                              <span><strong>ผู้จ่าย:</strong>
+                                <select value={item.payer} onChange={e=>changePayerExisting(item.id,e.target.value)} style={{ background:'transparent', border:'none', borderBottom:'1px dashed #94a3b8', color:'#0d9488', fontWeight:700, fontSize:10, cursor:'pointer', outline:'none', marginLeft:4, fontFamily:'inherit' }}>
+                                  {members.map(n=><option key={n} value={n}>{n}</option>)}
+                                </select>
+                              </span>
+                              <span>• <strong>หาร ({item.sharedBy.length}):</strong> {item.sharedBy.join(', ')}</span>
+                            </div>
+                          </div>
+                          <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+                            <span style={{ fontSize:13, fontWeight:800, color:'#1e293b' }}>฿{fmt(item.price)}</span>
+                            <button onClick={()=>handleRemoveItem(item.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#cbd5e1', fontSize:14, padding:2 }} title="ลบ">🗑</button>
+                          </div>
+                        </div>
+                        <div style={{ borderTop:'1px dashed #e2e8f0', marginTop:8, paddingTop:8, display:'flex', flexWrap:'wrap', gap:5, alignItems:'center' }}>
+                          <span style={{ fontSize:9, color:'#94a3b8', fontWeight:700 }}>คลิกสลับ:</span>
+                          {members.map(name => (
+                            <button key={name} onClick={()=>toggleShareExisting(item.id,name)} style={s.chip(item.sharedBy.includes(name))} >
+                              {name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* RIGHT COL */}
+          <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+
+            {/* SHOP BREAKDOWN */}
+            <div style={s.card}>
+              <div style={s.sectionTitle}>🏬 สรุปแยกตามร้านค้า</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {shopCalculations.map(sc => {
+                  const shopObj = shops.find(s => s.id === sc.shopId);
+                  return (
+                    <div key={sc.shopId} style={{ padding:12, background:'#f8fafc', borderRadius:12, border:'1px solid #f1f5f9' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8, paddingBottom:8, borderBottom:'1px solid #f1f5f9' }}>
+                        <span style={{ fontSize:12, fontWeight:800, color:'#334155' }}>{sc.shopName}</span>
+                        <span style={{ fontSize:13, fontWeight:800, color:'#0d9488' }}>฿{fmt(sc.finalTotal)}</span>
+                      </div>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px 12px', fontSize:11 }}>
+                        {[['ค่าอาหารดิบ','#64748b',`฿${fmt(sc.rawSubtotal)}`],[`SC (${shopObj?.serviceChargePercent||0}%)`, '#475569',`+฿${fmt(sc.serviceChargeTotal)}`],[`ส่วนลด`,'#059669',`-฿${fmt(sc.discountTotal)}`],[`VAT (${shopObj?.vatPercent||0}%)`,'#475569',`+฿${fmt(sc.vatTotal)}`]].map(([label,col,val])=>(
+                          <React.Fragment key={label}>
+                            <span style={{ color:col }}>{label}:</span>
+                            <span style={{ textAlign:'right', fontWeight:600, color:col }}>{val}</span>
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* GRAND TOTAL */}
+            <div style={s.card}>
+              <div style={s.sectionTitle}>✨ ยอดรวมสุทธิ</div>
+              <div style={{ background:'#f8fafc', borderRadius:12, padding:14 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:'#64748b', marginBottom:8 }}>
+                  <span>รวมราคาดิบทุกกิจกรรม</span>
+                  <span style={{ fontWeight:600 }}>฿{fmt(globalRawSubtotal)}</span>
+                </div>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:15, fontWeight:800, color:'#1e293b', paddingTop:8, borderTop:'1px solid #e2e8f0' }}>
+                  <span>ยอดจ่ายรวมสุทธิ</span>
+                  <span style={{ color:'#0d9488' }}>฿{fmt(globalGrandTotal)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* TRANSACTIONS */}
+            <div style={{ background:'#f0fdfa', border:'1px solid #ccfbf1', borderRadius:16, padding:18 }}>
+              <div style={{ fontSize:12, fontWeight:800, color:'#0f766e', display:'flex', alignItems:'center', gap:6, marginBottom:12 }}>⚡ แผนเคลียร์เงินที่ดีที่สุด</div>
+              {transactions.length === 0 ? (
+                <p style={{ fontSize:12, color:'#0d9488', textAlign:'center', padding:'10px 0', fontWeight:600 }}>ยอดสมดุลแล้ว ไม่มีใครค้างโอน! 🎉</p>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {transactions.map((t,idx) => (
+                    <div key={idx} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', background:'#fff', padding:'10px 12px', borderRadius:12, border:'1px solid rgba(20,184,166,0.15)' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, flex:1, minWidth:0 }}>
+                        <span style={{ fontSize:12, fontWeight:800, color:'#334155' }}>{t.from}</span>
+                        <span style={{ fontSize:11, color:'#94a3b8' }}>→</span>
+                        <span style={{ fontSize:12, fontWeight:800, color:'#0d9488' }}>{t.to}</span>
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <span style={{ fontSize:13, fontWeight:800, color:'#1e293b' }}>฿{fmt(t.amount)}</span>
+                        {promptPayIds[t.to] && (
+                          <button onClick={()=>handleOpenQr(t.from,t.to,t.amount)} style={{ background:'#f0fdfa', border:'1px solid #ccfbf1', borderRadius:8, padding:'4px 8px', cursor:'pointer', fontSize:13, color:'#0d9488' }} title="QR พร้อมเพย์">📱</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* MEMBER DETAILS */}
+            <div style={s.card}>
+              <div style={s.sectionTitle}>👤 สรุปรายบุคคล</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:420, overflowY:'auto' }}>
+                {memberCalculations.map(m => {
+                  const isExp = expandedMember === m.name;
+                  return (
+                    <div key={m.name} style={{ border:'1px solid #f1f5f9', borderRadius:12, overflow:'hidden' }}>
+                      <div onClick={()=>setExpandedMember(isExp?null:m.name)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 12px', cursor:'pointer', background: isExp?'#f8fafc':'#fff' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                          <div style={{ width:34, height:34, background:'#f0fdfa', color:'#0d9488', borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:13 }}>{m.name.charAt(0)}</div>
+                          <div>
+                            <div style={{ fontSize:12, fontWeight:800, color:'#1e293b' }}>{m.name}</div>
+                            <div style={{ fontSize:10, color:'#94a3b8' }}>{isExp?'▲ ซ่อน':'▼ ดูรายละเอียด'}</div>
+                          </div>
+                        </div>
+                        <div style={{ textAlign:'right' }}>
+                          <div style={{ fontSize:10, color:'#94a3b8' }}>ทานจริง ฿{fmt(m.finalOwed)}</div>
+                          <div style={{ fontSize:13, fontWeight:800, color: m.netBalance>=0?'#10b981':'#ef4444' }}>
+                            {m.netBalance>=0?'+':'-'}฿{fmt(Math.abs(m.netBalance))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {isExp && (
+                        <div style={{ background:'#f8fafc', padding:12, borderTop:'1px solid #f1f5f9', fontSize:11 }}>
+                          <div style={{ marginBottom:10 }}>
+                            <p style={{ fontWeight:700, color:'#475569', marginBottom:6 }}>💰 บันทึกการออกเงิน:</p>
+                            {[['สำรองจ่ายรวม (รวมภาษี/SC)',m.paid],['มูลค่าที่รับประทานจริง',m.finalOwed]].map(([label,val])=>(
+                              <div key={label} style={{ display:'flex', justifyContent:'space-between', color:'#64748b', marginBottom:3 }}>
+                                <span>{label}:</span><span style={{ fontWeight:700, color:'#334155' }}>฿{fmt(val)}</span>
+                              </div>
+                            ))}
+                            <div style={{ display:'flex', justifyContent:'space-between', fontWeight:800, paddingTop:6, borderTop:'1px solid #e2e8f0', color: m.netBalance>=0?'#10b981':'#ef4444' }}>
+                              <span>{m.netBalance>=0?'ควรได้รับ:':'ต้องโอนเพิ่ม:'}</span>
+                              <span>฿{fmt(Math.abs(m.netBalance))}</span>
+                            </div>
+                          </div>
+
+                          {m.items.length > 0 && (
+                            <div style={{ marginBottom:10 }}>
+                              <p style={{ fontWeight:700, color:'#475569', marginBottom:6 }}>🍽️ รายการที่ทาน:</p>
+                              {m.items.map((it,i) => (
+                                <div key={i} style={{ display:'flex', justifyContent:'space-between', color:'#64748b', marginBottom:3, fontSize:10 }}>
+                                  <span style={{ maxWidth:220, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{it.name} (หาร {it.shareCount}) [{it.shopName}]</span>
+                                  <span>฿{fmt(it.finalShareCost)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {m.netBalance !== 0 && (
+                            <div>
+                              <p style={{ fontWeight:700, color:'#475569', marginBottom:6 }}>⚙️ รายการโอนปรับดุล:</p>
+                              {m.netBalance < 0
+                                ? m.transferTos.map((t,i) => (
+                                  <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'#fff', padding:'6px 8px', borderRadius:8, border:'1px solid #e2e8f0', marginBottom:4, fontSize:10 }}>
+                                    <span>➡️ โอนให้ <strong>{t.to}</strong></span>
+                                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                      <span style={{ fontWeight:700 }}>฿{fmt(t.amount)}</span>
+                                      {promptPayIds[t.to] && <button onClick={()=>handleOpenQr(m.name,t.to,t.amount)} style={{ background:'#f0fdfa', border:'1px solid #ccfbf1', borderRadius:6, padding:'2px 6px', cursor:'pointer', fontSize:11 }}>📱</button>}
+                                    </div>
+                                  </div>
+                                ))
+                                : m.receiveFroms.map((t,i) => (
+                                  <div key={i} style={{ display:'flex', justifyContent:'space-between', background:'#fff', padding:'6px 8px', borderRadius:8, border:'1px solid #e2e8f0', marginBottom:4, fontSize:10 }}>
+                                    <span>⬅️ รอรับจาก <strong>{t.from}</strong></span>
+                                    <span style={{ color:'#10b981', fontWeight:700 }}>฿{fmt(t.amount)}</span>
+                                  </div>
+                                ))
+                              }
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
