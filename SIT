@@ -1,0 +1,601 @@
+```react
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Users, 
+  Utensils, 
+  Plus, 
+  Trash2, 
+  DollarSign, 
+  Percent, 
+  Receipt, 
+  QrCode, 
+  Check, 
+  RotateCcw,
+  Download,
+  Upload,
+  ChevronDown,
+  ChevronUp,
+  UserPlus,
+  ArrowRight,
+  Sparkles,
+  Info,
+  X,
+  AlertTriangle,
+  CheckCircle2,
+  Store,
+  FileJson,
+  Copy,
+  Image as ImageIcon
+} from 'lucide-react';
+
+export default function App() {
+  // --- States หลัก ---
+  const [eventName, setEventName] = useState('ทริปแสนสนุกกับกลุ่มเพื่อน');
+  const [promptPayIds, setPromptPayIds] = useState({
+    'บอมบ์': '0812345678',
+    'เกรซ': '0898765432'
+  }); // บันทึกพร้อมเพย์ของแต่ละคน
+  
+  const [members, setMembers] = useState(['บอมบ์', 'เกรซ', 'นนท์', 'ตูน']);
+  const [newMemberName, setNewMemberName] = useState('');
+  
+  // --- States ร้านค้า/กิจกรรม (แยกคิด VAT, Service Charge, ส่วนลด) ---
+  const [shops, setShops] = useState([
+    { id: 1, name: 'ชาบูหม้อไฟ (ร้านที่ 1)', vatPercent: 7, serviceChargePercent: 10, discountType: 'fixed', discountValue: 150 },
+    { id: 2, name: 'ของหวานบิงซู (ร้านที่ 2)', vatPercent: 7, serviceChargePercent: 0, discountType: 'percent', discountValue: 10 }
+  ]);
+  
+  const [newShopName, setNewShopName] = useState('');
+  const [newShopVat, setNewShopVat] = useState(0);
+  const [newShopSc, setNewShopSc] = useState(0);
+  const [newShopDiscountType, setNewShopDiscountType] = useState('fixed');
+  const [newShopDiscountValue, setNewShopDiscountValue] = useState(0);
+
+  // --- States รายการเมนูอาหาร ---
+  const [items, setItems] = useState([
+    { id: 1, name: 'เนื้อวากิวและหม้อชาบู', price: 1200, payer: 'บอมบ์', sharedBy: ['บอมบ์', 'เกรซ', 'นนท์', 'ตูน'], shopId: 1 },
+    { id: 2, name: 'น้ำรีฟิลเก๊กฮวย', price: 160, payer: 'บอมบ์', sharedBy: ['บอมบ์', 'เกรซ', 'นนท์', 'ตูน'], shopId: 1 },
+    { id: 3, name: 'บิงซูมะม่วงจานยักษ์', price: 350, payer: 'เกรซ', sharedBy: ['เกรซ', 'ตูน', 'นนท์'], shopId: 2 },
+    { id: 4, name: 'โมจิไอศกรีม', price: 120, payer: 'ตูน', sharedBy: ['บอมบ์', 'ตูน'], shopId: 2 }
+  ]);
+  
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemPrice, setNewItemPrice] = useState('');
+  const [newItemPayer, setNewItemPayer] = useState('');
+  const [newItemShopId, setNewItemShopId] = useState(1);
+  const [newItemShared, setNewItemShared] = useState([]);
+
+  // --- States ระบบควบคุม UI และแจ้งเตือน ---
+  const [selectedRecipientForQr, setSelectedRecipientForQr] = useState('');
+  const [selectedAmountForQr, setSelectedAmountForQr] = useState(0);
+  const [selectedSenderForQr, setSelectedSenderForQr] = useState('');
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [expandedMember, setExpandedMember] = useState(null);
+  const [shopModalOpen, setShopModalOpen] = useState(false);
+  const [ioModalOpen, setIoModalOpen] = useState(false);
+  
+  // States ใหม่สำหรับแก้ไขการบันทึกภาพการ์ดสรุปยอด
+  const [cardImageModalOpen, setCardImageModalOpen] = useState(false);
+  const [generatedCardImageUrl, setGeneratedCardImageUrl] = useState('');
+  
+  // State สำหรับคัดลอกข้อความ JSON ลง Clipboard เพื่อเป็นตัวเลือกสำรอง
+  const [jsonTextToShow, setJsonTextToShow] = useState('');
+
+  const fileInputRef = useRef(null);
+
+  // --- States ระบบแจ้งเตือน Custom Popups ---
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: null
+  });
+
+  const showToast = (message, type = 'info') => {
+    setToast({ show: true, message, type });
+  };
+
+  useEffect(() => {
+    if (toast.show) {
+      const timer = setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast.show]);
+
+  const showConfirm = (title, message, onConfirmAction) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirmAction();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  // รีเซ็ตค่าผู้ร่วมแชร์เมื่อกลุ่มสมาชิกร้านเปลี่ยนไป
+  useEffect(() => {
+    if (members.length > 0) {
+      if (!newItemPayer || !members.includes(newItemPayer)) {
+        setNewItemPayer(members[0]);
+      }
+      setNewItemShared([...members]);
+    }
+  }, [members]);
+
+  useEffect(() => {
+    if (shops.length > 0 && !shops.some(s => s.id === newItemShopId)) {
+      setNewItemShopId(shops[0].id);
+    }
+  }, [shops]);
+
+  // --- 💾 ฟังก์ชันสร้างและแชร์ JSON ข้อมูลบิล ---
+  const handleExportJSON = () => {
+    try {
+      const dataObj = {
+        version: "1.0",
+        appName: "BillSplitterSmart",
+        eventName,
+        members,
+        promptPayIds,
+        shops,
+        items,
+        exportedAt: new Date().toISOString()
+      };
+      const dataStr = JSON.stringify(dataObj, null, 2);
+      setJsonTextToShow(dataStr);
+
+      // ลองดาวน์โหลดแบบดั้งเดิม (ถ้าเบราว์เซอร์ไม่บล็อก)
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      const exportFileDefaultName = `${eventName.replace(/[^a-zA-Z0-9ก-๙_-]/g, '_')}_bill_data.json`;
+
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+      
+      showToast("ดาวน์โหลดไฟล์ JSON สำเร็จ! (หรือใช้ปุ่มคัดลอกด้านล่าง)", "success");
+    } catch (err) {
+      showToast("เกิดปัญหาในการส่งออกไฟล์ แต่อ่านข้อความในกล่องด้านล่างได้ครับ", "error");
+    }
+  };
+
+  const handleCopyJSONToClipboard = () => {
+    try {
+      const dataObj = {
+        version: "1.0",
+        appName: "BillSplitterSmart",
+        eventName,
+        members,
+        promptPayIds,
+        shops,
+        items,
+        exportedAt: new Date().toISOString()
+      };
+      navigator.clipboard.writeText(JSON.stringify(dataObj, null, 2));
+      showToast("คัดลอกข้อความ JSON ลงคลิปบอร์ดแล้ว!", "success");
+    } catch (err) {
+      showToast("ล้มเหลว: " + err.message, "error");
+    }
+  };
+
+  // --- 📂 ฟังก์ชันนำเข้าข้อมูลจากไฟล์ JSON (Import JSON) ---
+  const handleImportJSON = (e) => {
+    const fileReader = new FileReader();
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    fileReader.readAsText(e.target.files[0], "UTF-8");
+    fileReader.onload = (event) => {
+      try {
+        const importedData = JSON.parse(event.target.result);
+        
+        if (!importedData.members || !importedData.shops || !importedData.items) {
+          showToast("รูปแบบโครงสร้างไฟล์ JSON ไม่ถูกต้อง", "error");
+          return;
+        }
+
+        showConfirm(
+          "ยืนยันการนำเข้าบิลใหม่",
+          `ต้องการล้างบิลเก่าและนำเข้าข้อมูลทริปจากไฟล์ "${importedData.eventName || 'ไม่ได้ระบุชื่อ'}" ใช่หรือไม่?`,
+          () => {
+            setEventName(importedData.eventName || 'บิลนำเข้า');
+            setMembers(importedData.members || []);
+            setPromptPayIds(importedData.promptPayIds || {});
+            setShops(importedData.shops || []);
+            setItems(importedData.items || []);
+            setIoModalOpen(false);
+            showToast("นำเข้าข้อมูลไฟล์บิลเรียบร้อยแล้ว!", "success");
+          }
+        );
+      } catch (err) {
+        showToast("อ่านไฟล์ JSON ล้มเหลว: " + err.message, "error");
+      }
+    };
+    e.target.value = null;
+  };
+
+  // จัดการนำเข้าผ่านการวางข้อความ JSON โดยตรง (Fallback เผื่อไฟล์อัปโหลดโดนบล็อก)
+  const handleImportByPasteText = (textValue) => {
+    try {
+      const importedData = JSON.parse(textValue);
+      if (!importedData.members || !importedData.shops || !importedData.items) {
+        showToast("รูปแบบโครงสร้าง JSON ไม่ถูกต้อง", "error");
+        return;
+      }
+      setEventName(importedData.eventName || 'บิลนำเข้า');
+      setMembers(importedData.members || []);
+      setPromptPayIds(importedData.promptPayIds || {});
+      setShops(importedData.shops || []);
+      setItems(importedData.items || []);
+      setIoModalOpen(false);
+      showToast("วางและนำเข้าข้อความ JSON สำเร็จ!", "success");
+    } catch (err) {
+      showToast("รูปแบบ JSON ผิดพลาด: " + err.message, "error");
+    }
+  };
+
+  // --- จัดการเพื่อน ---
+  const handleAddMember = (e) => {
+    e.preventDefault();
+    const name = newMemberName.trim();
+    if (!name) return;
+    if (members.includes(name)) {
+      showToast('มีชื่อเพื่อนคนนี้อยู่ในรายการแล้วครับ', 'error');
+      return;
+    }
+    setMembers([...members, name]);
+    setNewMemberName('');
+    showToast(`เพิ่มคุณ ${name} เข้ากลุ่มสำเร็จ!`, 'success');
+  };
+
+  const handleRemoveMember = (name) => {
+    showConfirm(
+      'ยืนยันลบเพื่อน',
+      `คุณต้องการลบคุณ "${name}" ออกจากกลุ่ม? ระบบจะหักชื่อคนนี้ออกจากรายการและประวัติการโอนทั้งหมด`,
+      () => {
+        setMembers(prev => prev.filter(m => m !== name));
+        setItems(prevItems => prevItems.map(item => ({
+          ...item,
+          payer: item.payer === name ? (members.find(m => m !== name) || '') : item.payer,
+          sharedBy: item.sharedBy.filter(m => m !== name)
+        })).filter(item => item.sharedBy.length > 0 && item.payer !== ''));
+        showToast(`ลบคุณ ${name} เรียบร้อยแล้ว`, 'success');
+      }
+    );
+  };
+
+  const handleUpdatePromptPay = (name, val) => {
+    setPromptPayIds({
+      ...promptPayIds,
+      [name]: val
+    });
+  };
+
+  // --- จัดการร้านค้า/กิจกรรม ---
+  const handleAddShop = (e) => {
+    e.preventDefault();
+    const name = newShopName.trim();
+    if (!name) {
+      showToast('กรุณากรอกชื่อร้านค้า/กิจกรรม', 'error');
+      return;
+    }
+    const newShop = {
+      id: Date.now(),
+      name,
+      vatPercent: Math.max(0, parseFloat(newShopVat) || 0),
+      serviceChargePercent: Math.max(0, parseFloat(newShopSc) || 0),
+      discountType: newShopDiscountType,
+      discountValue: Math.max(0, parseFloat(newShopDiscountValue) || 0)
+    };
+    setShops([...shops, newShop]);
+    setNewShopName('');
+    setNewShopVat(0);
+    setNewShopSc(0);
+    setNewShopDiscountValue(0);
+    setShopModalOpen(false);
+    showToast(`เพิ่มร้าน "${name}" เรียบร้อย!`, 'success');
+  };
+
+  const handleRemoveShop = (id, name) => {
+    if (shops.length <= 1) {
+      showToast('ต้องมีร้านค้าอย่างน้อย 1 ร้านค้าในระบบครับ', 'error');
+      return;
+    }
+    showConfirm(
+      'ยืนยันลบร้านค้า',
+      `ต้องการลบ "${name}"? เมนูอาหารทั้งหมดที่ผูกกับร้านนี้จะถูกลบออกไปด้วย`,
+      () => {
+        setShops(shops.filter(s => s.id !== id));
+        setItems(items.filter(item => item.shopId !== id));
+        showToast(`ลบร้าน "${name}" และเมนูที่เกี่ยวข้องสำเร็จ`, 'success');
+      }
+    );
+  };
+
+  // --- จัดการรายการเมนู ---
+  const handleAddItem = (e) => {
+    e.preventDefault();
+    if (!newItemName.trim() || !newItemPrice || parseFloat(newItemPrice) <= 0) {
+      showToast('กรุณากรอกรายละเอียดเมนูและราคาให้ถูกต้อง', 'error');
+      return;
+    }
+    if (!newItemPayer) {
+      showToast('กรุณาเลือกผู้จ่ายสำรองก่อนครับ', 'error');
+      return;
+    }
+    if (newItemShared.length === 0) {
+      showToast('กรุณาเลือกอย่างน้อย 1 คนเพื่อหารรายการนี้', 'error');
+      return;
+    }
+
+    const newItem = {
+      id: Date.now(),
+      name: newItemName.trim(),
+      price: parseFloat(newItemPrice),
+      payer: newItemPayer,
+      shopId: parseInt(newItemShopId),
+      sharedBy: [...newItemShared]
+    };
+
+    setItems([...items, newItem]);
+    setNewItemName('');
+    setNewItemPrice('');
+    setNewItemShared([...members]);
+    showToast(`บันทึกเมนู "${newItem.name}" สำเร็จ`, 'success');
+  };
+
+  const handleRemoveItem = (id) => {
+    setItems(items.filter(item => item.id !== id));
+    showToast('ลบรายการสำเร็จ', 'success');
+  };
+
+  const toggleShareInNewItem = (name) => {
+    if (newItemShared.includes(name)) {
+      setNewItemShared(newItemShared.filter(m => m !== name));
+    } else {
+      setNewItemShared([...newItemShared, name]);
+    }
+  };
+
+  const toggleShareInExistingItem = (itemId, name) => {
+    setItems(items.map(item => {
+      if (item.id === itemId) {
+        const isShared = item.sharedBy.includes(name);
+        const updatedShared = isShared 
+          ? item.sharedBy.filter(m => m !== name)
+          : [...item.sharedBy, name];
+        return { ...item, sharedBy: updatedShared };
+      }
+      return item;
+    }).filter(item => item.sharedBy.length > 0));
+  };
+
+  const handleChangePayerInExistingItem = (itemId, newPayer) => {
+    setItems(items.map(item => {
+      if (item.id === itemId) {
+        return { ...item, payer: newPayer };
+      }
+      return item;
+    }));
+  };
+
+  // ==========================================
+  //     🧠 ระบบคำนวณแยกรายร้านค้า (Core Logic)
+  // ==========================================
+
+  const shopCalculations = shops.map(shop => {
+    const shopItems = items.filter(item => item.shopId === shop.id);
+    const rawSubtotal = shopItems.reduce((sum, item) => sum + item.price, 0);
+
+    // 1. Service Charge: คิดจากราคาก่อนหักส่วนลด (Raw Subtotal)
+    const serviceChargeTotal = rawSubtotal * (shop.serviceChargePercent / 100);
+
+    // 2. คำนวณยอดส่วนลด (Discount)
+    let discountTotal = 0;
+    if (shop.discountType === 'percent') {
+      discountTotal = rawSubtotal * (shop.discountValue / 100);
+    } else {
+      discountTotal = shop.discountValue;
+    }
+    discountTotal = Math.min(discountTotal, rawSubtotal); // ส่วนลดไม่เกินราคาดิบ
+    const subtotalAfterDiscount = rawSubtotal - discountTotal;
+
+    // 3. VAT: คิดจากยอดราคาอาหารหลังหักส่วนลดเรียบร้อยแล้วบวกด้วยค่า Service Charge
+    const vatTotal = Math.max(0, subtotalAfterDiscount + serviceChargeTotal) * (shop.vatPercent / 100);
+
+    // ยอดรวมจ่ายจริงทั้งหมดของร้านนี้ (ดิบ - ลด + SC + VAT)
+    const finalTotal = Math.max(0, subtotalAfterDiscount + serviceChargeTotal + vatTotal);
+
+    // ตัวคูณสัดส่วนเฉพาะของร้านเพื่อกระจายสู่สมาชิกรายคน
+    const multiplier = rawSubtotal > 0 ? finalTotal / rawSubtotal : 0;
+
+    // คำนวณยอดทานดิบของแต่ละคนในร้านนี้
+    const memberRawConsumed = {};
+    members.forEach(m => memberRawConsumed[m] = 0);
+
+    shopItems.forEach(item => {
+      const shareCount = item.sharedBy.length;
+      if (shareCount > 0) {
+        const costPerPerson = item.price / shareCount;
+        item.sharedBy.forEach(person => {
+          if (memberRawConsumed[person] !== undefined) {
+            memberRawConsumed[person] += costPerPerson;
+          }
+        });
+      }
+    });
+
+    // คำนวณยอดทานจริงที่บวก SC, VAT และส่วนลดรายร้าน
+    const memberFinalOwed = {};
+    members.forEach(m => {
+      memberFinalOwed[m] = (memberRawConsumed[m] || 0) * multiplier;
+    });
+
+    return {
+      shopId: shop.id,
+      shopName: shop.name,
+      rawSubtotal,
+      serviceChargeTotal,
+      discountTotal,
+      vatTotal,
+      finalTotal,
+      multiplier,
+      memberFinalOwed
+    };
+  });
+
+  // 2. คำนวณยอดสะสมสุทธิรวมทุกร้านค้า
+  const globalRawSubtotal = items.reduce((sum, i) => sum + i.price, 0);
+  const globalGrandTotal = shopCalculations.reduce((sum, s) => sum + s.finalTotal, 0);
+
+  // คำนวณยอดที่แต่ละคน "ทานจริงสะสม" จากทุกร้าน
+  const memberTotalOwed = {};
+  members.forEach(m => {
+    memberTotalOwed[m] = shopCalculations.reduce((sum, s) => sum + (s.memberFinalOwed[m] || 0), 0);
+  });
+
+  // ⭐️ คำนวณยอดที่แต่ละคน "สำรองจ่ายรวมจริง" (คำนวณบวก VAT, Service Charge และส่วนลดตามสัดส่วนร้านค้า)
+  const memberTotalPaid = {};
+  members.forEach(m => memberTotalPaid[m] = 0);
+  items.forEach(item => {
+    const shopCalc = shopCalculations.find(sc => sc.shopId === item.shopId);
+    const mult = shopCalc ? shopCalc.multiplier : 1;
+    if (memberTotalPaid[item.payer] !== undefined) {
+      memberTotalPaid[item.payer] += item.price * mult;
+    }
+  });
+
+  // 3. หาส่วนต่าง Net Balance สะสมของเพื่อนทุกคน (ยอดที่ออกไปก่อน - ยอดที่กินจริงสะสม)
+  const memberBalances = {};
+  members.forEach(m => {
+    const paid = memberTotalPaid[m] || 0;
+    const owed = memberTotalOwed[m] || 0;
+    memberBalances[m] = paid - owed; // บวก = เจ้าหนี้ต้องได้คืน, ลบ = ลูกหนี้ต้องโอนเพิ่ม
+  });
+
+  // 4. อัลกอริทึมหักลบกลบหนี้ (Simplified Transactions)
+  const getSimplifiedTransactions = () => {
+    let creditors = [];
+    let debtors = [];
+
+    Object.keys(memberBalances).forEach(name => {
+      const bal = memberBalances[name];
+      if (bal > 0.01) {
+        creditors.push({ name, amount: bal });
+      } else if (bal < -0.01) {
+        debtors.push({ name, amount: Math.abs(bal) });
+      }
+    });
+
+    creditors.sort((a, b) => b.amount - a.amount);
+    debtors.sort((a, b) => b.amount - a.amount);
+
+    const transactions = [];
+    let cIdx = 0;
+    let dIdx = 0;
+
+    while (cIdx < creditors.length && dIdx < debtors.length) {
+      const creditor = creditors[cIdx];
+      const debtor = debtors[dIdx];
+      const transferAmount = Math.min(creditor.amount, debtor.amount);
+
+      if (transferAmount > 0.01) {
+        transactions.push({
+          from: debtor.name,
+          to: creditor.name,
+          amount: transferAmount
+        });
+      }
+
+      creditor.amount -= transferAmount;
+      debtor.amount -= transferAmount;
+
+      if (creditor.amount < 0.01) cIdx++;
+      if (debtor.amount < 0.01) dIdx++;
+    }
+
+    return transactions;
+  };
+
+  const transactions = getSimplifiedTransactions();
+
+  // จัดข้อมูลจำแนกรายคนอย่างละเอียดสำหรับใช้แสดงผลหน้าเว็บ
+  const memberCalculations = members.map(name => {
+    const finalOwed = memberTotalOwed[name] || 0;
+    const paid = memberTotalPaid[name] || 0;
+    const netBalance = memberBalances[name] || 0;
+
+    // สรุปรายการย่อยที่กิน แยกตามร้านค้า
+    const itemBreakdown = items.filter(item => item.sharedBy.includes(name)).map(item => {
+      const shopObj = shops.find(s => s.id === item.shopId);
+      const shopCalc = shopCalculations.find(sc => sc.shopId === item.shopId);
+      const multiplier = shopCalc ? shopCalc.multiplier : 1;
+
+      return {
+        name: item.name,
+        price: item.price,
+        shopName: shopObj ? shopObj.name : 'ทั่วไป',
+        shareCount: item.sharedBy.length,
+        finalShareCost: (item.price / item.sharedBy.length) * multiplier
+      };
+    });
+
+    const transferTos = transactions.filter(t => t.from === name);
+    const receiveFroms = transactions.filter(t => t.to === name);
+
+    return {
+      name,
+      finalOwed,
+      paid,
+      netBalance,
+      items: itemBreakdown,
+      transferTos,
+      receiveFroms
+    };
+  });
+
+  // ==========================================
+  //    🎨 ระบบวาดรูปการ์ด Canvas (Export Image)
+  // ==========================================
+  const drawRoundedRect = (ctx, x, y, width, height, radius, fillStyle, strokeStyle = null) => {
+    ctx.fillStyle = fillStyle;
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    ctx.fill();
+    if (strokeStyle) {
+      ctx.strokeStyle = strokeStyle;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  };
+
+  // ✅ ฟังชันแก้ไขปัญหาการดาวน์โหลดโดนบล็อก: จะวาด Canvas แล้วแปลงเป็น DataURL แสดงผลเป็นภาพในโมดอลแทน เพื่อให้ผู้ใช้เซฟได้โดยตรง
+  const handleRenderCardImageModal = () => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // คำนวณความสูงตามประวัติธุรกรรมและร้านค้าในระบบ
+    const txCount = transactions.length;
+    const shopSectionHeight = shops.length * 45;
+    const baseHeight = 360 + shopSectionHeight;
+    const txHeight = Math.max(1, txCount) * 75;
+    const finalHeight = baseHeight + txHeight + 80;
+
+    canvas.width = 640;
+    canvas.height = finalHeight;
+
+    // 1. ระบายพื้นหลัง Gradient ดีไซน์สวยงาม
+    const mainGradient = ctx.createLinearGradient(0, 0, 0, finalHeight);
+    mainGradient.addColorStop(0, '#0f172a'); 
+    mainGradient.addColorStop(0.
