@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OT Pro Calendar - บันทึกชั่วโมงโอที</title>
+    <!-- นำเข้า Tailwind CSS เพื่อช่วยในการจัดแต่งดีไซน์ที่สวยงามและรองรับมือถือ -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- นำเข้าไอคอน Lucide เพื่อความเรียบร้อยและดูเป็นมืออาชีพ -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Firebase SDK สำหรับซิงค์ข้อมูลข้ามเครื่องผ่าน Firestore (ใช้ compat build เพื่อให้เรียกใช้ได้ตรงๆ โดยไม่ต้องมีระบบ build) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Sarabun:wght@400;700&display=swap');
+        body { font-family: 'Sarabun', 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen pb-10">
+
+    <div class="max-w-md mx-auto px-4 pt-6">
+
+        <!-- TOP BAR: ชื่อแอป + ปุ่มสถานะการซิงค์ข้อมูลข้ามเครื่อง -->
+        <div class="flex items-center justify-between mb-3 px-1">
+            <h1 class="text-sm font-black text-slate-500 tracking-tight">OT Pro Calendar</h1>
+            <button onclick="openSyncModal()" id="syncStatusBtn" class="flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-400 transition">
+                <i data-lucide="cloud" class="w-3.5 h-3.5"></i>
+                <span id="syncStatusText">ยังไม่ซิงค์</span>
+            </button>
+        </div>
+        
+        <!-- DASHBOARD SECTION: แสดงสถิติชั่วโมงรวมในรอบปัจจุบันและปุ่มสลับรอบ -->
+        <div id="periodCard" class="bg-indigo-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 mb-6 relative overflow-hidden">
+            <!-- ดีไซน์วงกลมเรืองแสงตกแต่งพื้นหลัง -->
+            <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+            
+            <div class="relative z-10 text-center flex flex-col items-center">
+                <span class="text-[10px] bg-indigo-500/50 border border-indigo-400/30 px-3 py-1 rounded-full text-indigo-100 font-bold uppercase tracking-wider mb-4">
+                    ชั่วโมงโอทีรวมประจำรอบ
+                </span>
+
+                <!-- แถบสลับวิกด้วยปุ่มลูกศร ซ้าย-ขวา -->
+                <div class="w-full flex items-center justify-between bg-white/10 rounded-2xl border border-white/20 p-1 mb-3">
+                    <button onclick="changePeriod(-1)" class="p-2.5 hover:bg-white/10 active:scale-95 rounded-xl transition text-white">
+                        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                    </button>
+                    <span id="periodText" class="text-xs font-bold tracking-wide">กำลังคำนวณรอบ...</span>
+                    <button onclick="changePeriod(1)" class="p-2.5 hover:bg-white/10 active:scale-95 rounded-xl transition text-white">
+                        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <!-- ตัวเลขชั่วโมงรวมขนาดใหญ่เด่นชัด -->
+                <h1 id="totalHoursText" class="text-5xl font-black mt-2 mb-1">0.00 <span class="text-xl font-normal">ชม.</span></h1>
+            </div>
+        </div>
+
+        <!-- CALENDAR WRAP: ครอบส่วนหัวเดือนและตารางไว้ด้วยกันเพื่อรองรับการปัดนิ้ว (swipe) เปลี่ยนเดือน -->
+        <div id="calendarWrap">
+        <!-- CALENDAR HEADER: ตัวสลับเดือน ย้อนหลัง - ไปข้างหน้า -->
+        <div class="bg-white rounded-t-3xl p-4 border-b border-slate-100 flex justify-between items-center shadow-sm">
+            <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-100 active:scale-95 rounded-full text-slate-400 transition">
+                <i data-lucide="chevron-left" class="w-6 h-6"></i>
+            </button>
+            <div class="text-center">
+                <h2 class="font-black text-slate-700 leading-none" id="monthYearTitle">กรกฎาคม 2569</h2>
+            </div>
+            <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-100 active:scale-95 rounded-full text-slate-400 transition">
+                <i data-lucide="chevron-right" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <!-- CALENDAR GRID: แสดงปฏิทินแบบตารางเดือน -->
+        <div class="bg-white rounded-b-3xl p-4 shadow-sm mb-4">
+            <!-- วันในสัปดาห์ -->
+            <div class="grid grid-cols-7 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest mb-4">
+                <div>อา</div><div>จ</div><div>อ</div><div>พ</div><div>พฤ</div><div>ศ</div><div>ส</div>
+            </div>
+            <!-- รายชื่อวันที่แต่ละวันที่จะถูกเจนขึ้นมาตามจริง -->
+            <div class="grid grid-cols-7 gap-2" id="calendarDays">
+                <!-- เจนด้วย JS -->
+            </div>
+        </div>
+        </div>
+
+        <!-- USAGE INFO: คำชี้แจงการใช้งานเบื้องต้น -->
+        <p class="text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
+            <i data-lucide="info" class="w-3.5 h-3.5"></i>
+            แตะที่วันที่ในปฏิทินเพื่อบันทึกชั่วโมง OT ได้ทันที
+        </p>
+    </div>
+
+    <!-- ENTRY MODAL: ป๊อปอัปแบบกดเลือกปุ่มชั่วโมงโดยตรงเพื่อบันทึกทันที -->
+    <div id="otModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-[2rem] p-6 max-w-sm w-full shadow-2xl m-4 transform scale-90 transition-transform duration-300" id="modalCard">
+            
+            <div class="text-center mb-5">
+                <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="clock" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-black text-slate-800 text-lg" id="modalDateLabel">20 ก.ค. 2569</h3>
+                <p class="text-slate-400 text-xs">กดเลือกชั่วโมงการทำงาน (ระบบจะบันทึกทันที)</p>
+            </div>
+
+            <!-- รายชื่อปุ่มตัวเลขชั่วโมง 0 - 4 ที่กดบันทึกได้ทันที -->
+            <div class="space-y-2 mb-6" id="hoursButtonContainer">
+                
+                <!-- ปุ่ม 1 ชั่วโมง -->
+                <button onclick="saveData(1)" class="hour-btn w-full text-left bg-slate-50 border border-slate-100 p-4 rounded-2xl font-bold text-sm text-slate-700 transition flex items-center justify-between" data-value="1">
+                    <span class="flex items-center gap-2.5">⏱️ 1 ชั่วโมง</span>
+                    <svg class="w-5 h-5 text-indigo-600 hidden check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </button>
+
+                <!-- ปุ่ม 2 ชั่วโมง -->
+                <button onclick="saveData(2)" class="hour-btn w-full text-left bg-slate-50 border border-slate-100 p-4 rounded-2xl font-bold text-sm text-slate-700 transition flex items-center justify-between" data-value="2">
+                    <span class="flex items-center gap-2.5">⏱️ 2 ชั่วโมง</span>
+                    <svg class="w-5 h-5 text-indigo-600 hidden check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </button>
+
+                <!-- ปุ่ม 3 ชั่วโมง -->
+                <button onclick="saveData(3)" class="hour-btn w-full text-left bg-slate-50 border border-slate-100 p-4 rounded-2xl font-bold text-sm text-slate-700 transition flex items-center justify-between" data-value="3">
+                    <span class="flex items-center gap-2.5">⏱️ 3 ชั่วโมง</span>
+                    <svg class="w-5 h-5 text-indigo-600 hidden check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </button>
+
+                <!-- ปุ่ม 4 ชั่วโมง -->
+                <button onclick="saveData(4)" class="hour-btn w-full text-left bg-slate-50 border border-slate-100 p-4 rounded-2xl font-bold text-sm text-slate-700 transition flex items-center justify-between" data-value="4">
+                    <span class="flex items-center gap-2.5">⏱️ 4 ชั่วโมง</span>
+                    <svg class="w-5 h-5 text-indigo-600 hidden check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </button>
+
+                <!-- ปุ่มลบข้อมูล / ไม่มีโอที (ค่าเป็น 0) -->
+                <button onclick="saveData(0)" class="hour-btn w-full text-left bg-slate-50 border border-slate-100 p-4 rounded-2xl font-bold text-sm text-slate-700 transition flex items-center justify-between" data-value="0">
+                    <span class="flex items-center gap-2.5 text-rose-600">❌ ไม่มีโอที / ลบข้อมูล</span>
+                    <svg class="w-5 h-5 text-rose-600 hidden check-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                </button>
+
+            </div>
+
+            <!-- ปุ่มปิด เพื่อเปลี่ยนใจไม่ได้อยากแก้ไขชั่วโมงในวันนั้น -->
+            <div class="flex gap-3">
+                <button onclick="closeModal()" class="w-full bg-slate-100 text-slate-500 font-bold p-3.5 rounded-2xl hover:bg-slate-200 transition text-sm">ปิดโดยไม่แก้ไข</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYNC MODAL: ตั้งค่าการซิงค์ข้อมูลข้ามเครื่องผ่าน Firebase -->
+    <div id="syncModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
+        <div class="bg-white rounded-[2rem] p-6 max-w-sm w-full shadow-2xl transform scale-90 transition-transform duration-300 max-h-[88vh] overflow-y-auto" id="syncModalCard">
+
+            <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="cloud-cog" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-black text-slate-800 text-lg">ซิงค์ข้อมูลข้ามเครื่อง</h3>
+                <p class="text-slate-400 text-xs">ตั้งค่าครั้งเดียว ใช้ได้ทุกเครื่อง</p>
+            </div>
+
+            <ol class="list-decimal list-inside text-[11px] leading-relaxed text-slate-500 space-y-2 mb-4 bg-slate-50 rounded-2xl p-3">
+                <li>ไปที่ <span class="font-bold text-indigo-600">console.firebase.google.com</span> แล้วสร้างโปรเจกต์ใหม่ (ฟรี)</li>
+                <li>กด "เพิ่มแอป" เลือกไอคอนเว็บ <span class="font-mono">&lt;/&gt;</span> ตั้งชื่ออะไรก็ได้ แล้วคัดลอกโค้ด <span class="font-bold">firebaseConfig</span> ทั้งก้อน</li>
+                <li>เมนูซ้าย Build → Firestore Database → กด "Create database" (โหมดไหนก็ได้)</li>
+                <li>แท็บ Rules ของ Firestore วางกฎนี้แทนของเดิม แล้วกด Publish:
+                    <pre class="bg-slate-800 text-slate-100 text-[9px] p-2 rounded-lg mt-1 overflow-x-auto whitespace-pre">rules_version='2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    match /otSync/{pin} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</pre>
+                </li>
+                <li>เมนูซ้าย Build → Authentication → Sign-in method → เปิดใช้ "Anonymous"</li>
+                <li>วางโค้ด firebaseConfig ที่คัดลอกมาลงช่องด้านล่าง ตั้ง/กรอกรหัสซิงค์ 6 หลัก แล้วกดเชื่อมต่อ (เครื่องแรกกด "สุ่มรหัสใหม่" แล้วจดรหัสไปกรอกที่เครื่องอื่นให้ตรงกัน)</li>
+            </ol>
+
+            <label class="text-xs font-bold text-slate-500 mb-1 block">วางโค้ด Firebase Config ที่นี่</label>
+            <textarea id="firebaseConfigInput" rows="4" placeholder='apiKey: "...", authDomain: "...", projectId: "...", ...' class="w-full text-[11px] border border-slate-200 rounded-xl p-3 mb-3 font-mono focus:outline-none focus:border-indigo-400"></textarea>
+
+            <label class="text-xs font-bold text-slate-500 mb-1 block">รหัสซิงค์ (ตัวเลข 6 หลัก)</label>
+            <div class="flex gap-2 mb-1">
+                <input id="syncPinInput" maxlength="6" inputmode="numeric" placeholder="เช่น 482913" class="flex-1 text-center tracking-[0.3em] font-black text-lg border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-indigo-400">
+                <button onclick="generateRandomPin()" class="px-3 rounded-xl bg-slate-100 text-slate-500 text-[11px] font-bold whitespace-nowrap">สุ่มรหัสใหม่</button>
+            </div>
+            <p class="text-[10px] text-slate-400 mb-3">เครื่องอื่นๆ ต้องกรอกรหัสเดียวกันนี้เพื่อให้ข้อมูลเจอกัน</p>
+
+            <p id="syncErrorText" class="text-xs text-rose-500 mb-3 hidden bg-rose-50 rounded-xl p-2.5"></p>
+            <p id="syncSuccessText" class="text-xs text-emerald-600 mb-3 hidden bg-emerald-50 rounded-xl p-2.5"></p>
+
+            <div class="space-y-2">
+                <button onclick="connectSync()" id="connectSyncBtn" class="w-full bg-indigo-600 text-white font-bold p-3.5 rounded-2xl text-sm hover:bg-indigo-700 transition">เชื่อมต่อซิงค์</button>
+                <button onclick="disconnectSync()" id="disconnectBtn" class="w-full bg-rose-50 text-rose-600 font-bold p-3.5 rounded-2xl text-sm hidden">ยกเลิกการซิงค์เครื่องนี้</button>
+                <button onclick="closeSyncModal()" class="w-full bg-slate-100 text-slate-500 font-bold p-3.5 rounded-2xl text-sm">ปิด</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA MANAGEMENT ---
+        // รูปแบบข้อมูลจัดเก็บใน LocalStorage: { "YYYY-MM-DD": hours }
+        let otData = JSON.parse(localStorage.getItem('otProDataHoursOnly')) || {};
+        let currentDate = new Date();
+        let activeDateKey = null;
+        let activePeriodKey = ""; // เก็บค่ารอบบิลปัจจุบัน (เช่น "2026-07")
+
+        // --- SYNC STATE (Firebase) ---
+        let syncEnabled = false;
+        let syncPin = null;
+        let syncDb = null;
+        let syncUnsub = null; // ตัวยกเลิกการฟัง realtime listener
+
+        const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+        const thaiMonthsShort = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
+        // --- SWIPE GESTURE (ปัดนิ้วซ้าย-ขวา) ---
+        // ปัดซ้าย = ไปข้างหน้า (เดือน/รอบถัดไป), ปัดขวา = ย้อนกลับ
+        function attachSwipeHandler(element, onSwipeNext, onSwipePrev) {
+            if (!element) return;
+            let startX = 0;
+            let startY = 0;
+            const threshold = 50; // ระยะขั้นต่ำ (px) ที่จะนับว่าเป็นการปัด ไม่ใช่แค่แตะ
+
+            element.addEventListener('touchstart', (e) => {
+                startX = e.changedTouches[0].screenX;
+                startY = e.changedTouches[0].screenY;
+            }, { passive: true });
+
+            element.addEventListener('touchend', (e) => {
+                const endX = e.changedTouches[0].screenX;
+                const endY = e.changedTouches[0].screenY;
+                const diffX = endX - startX;
+                const diffY = endY - startY;
+
+                // ต้องเป็นการปัดแนวนอนเป็นหลัก เพื่อไม่ไปชนกับการเลื่อนหน้าจอ (scroll) แนวตั้ง
+                if (Math.abs(diffX) > threshold && Math.abs(diffX) > Math.abs(diffY)) {
+                    if (diffX < 0) {
+                        onSwipeNext();
+                    } else {
+                        onSwipePrev();
+                    }
+                }
+            }, { passive: true });
+        }
+
+        // --- CORE FUNCTIONS ---
+
+        function init() {
+            migrateLegacyData();
+            initCurrentPeriod(); // ตั้งค่าตั้งต้นสำหรับ activePeriodKey ตามวันที่ปัจจุบัน
+            updateUI();
+            lucide.createIcons();
+
+            // เปิดใช้งานการปัดนิ้วเปลี่ยนรอบบิล (การ์ดสีม่วงด้านบน) และเปลี่ยนเดือนปฏิทิน (ตารางด้านล่าง)
+            attachSwipeHandler(document.getElementById('periodCard'), () => changePeriod(1), () => changePeriod(-1));
+            attachSwipeHandler(document.getElementById('calendarWrap'), () => changeMonth(1), () => changeMonth(-1));
+
+            // ถ้าเคยตั้งค่าซิงค์ไว้แล้วในเครื่องนี้ ให้เชื่อมต่อกลับอัตโนมัติ
+            initSyncFromStorage();
+        }
+
+        // โอนย้ายข้อมูลจากระบบเดิม (ถ้ามี)
+        function migrateLegacyData() {
+            let oldData = JSON.parse(localStorage.getItem('otProData'));
+            if (oldData && Object.keys(otData).length === 0) {
+                for (let key in oldData) {
+                    const entry = oldData[key];
+                    if (entry && typeof entry === 'object' && entry.h !== undefined) {
+                        otData[key] = entry.h;
+                    } else if (typeof entry === 'number') {
+                        otData[key] = entry;
+                    }
+                }
+                localStorage.setItem('otProDataHoursOnly', JSON.stringify(otData));
+                localStorage.removeItem('otProData');
+            }
+        }
+
+        // คำนวณช่วงวันที่ตามการตัดรอบเงิน (วันที่ 16 เดือนก่อนหน้า จนถึงวันที่ 15 เดือนปัจจุบัน)
+        function getPeriodRange(periodKey) {
+            const [year, month] = periodKey.split('-').map(Number);
+            const start = new Date(year, month - 2, 16);
+            const end = new Date(year, month - 1, 15);
+            return { start, end };
+        }
+
+        // กำหนดหาคีย์รอบปัจจุบันตามวันที่จริง (ตัดยอดทุกวันที่ 15)
+        function initCurrentPeriod() {
+            const today = new Date();
+            let curYear = today.getFullYear();
+            let curMonth = today.getMonth() + 1; // getMonth() เริ่มจาก 0
+            if (today.getDate() > 15) curMonth++;
+            if (curMonth > 12) { curMonth = 1; curYear++; }
+            activePeriodKey = `${curYear}-${String(curMonth).padStart(2, '0')}`;
+        }
+
+        // สั่งเปลี่ยนรอบตัดยอดด้วยปุ่มลูกศร (dir = -1 คือย้อนหลัง, 1 คือไปข้างหน้า)
+        function changePeriod(dir) {
+            let [y, m] = activePeriodKey.split('-').map(Number);
+            m += dir;
+            while (m < 1) { m += 12; y--; }
+            while (m > 12) { m -= 12; y++; }
+            activePeriodKey = `${y}-${String(m).padStart(2, '0')}`;
+            // ซิงค์ปฏิทินด้านล่างให้แสดงเดือนที่ตรงกับรอบบิลที่เลือก (เดือนที่ตัดรอบ 15)
+            // ไม่เช่นนั้นตัวเลขสรุปชั่วโมงจะเปลี่ยน แต่ตารางปฏิทินยังค้างอยู่ที่เดือนเดิม
+            currentDate = new Date(y, m - 1, 1);
+            updateUI();
+        }
+
+        function updateUI() {
+            renderCalendar();
+            updateSummary();
+        }
+
+        // คำนวณหาจำนวนชั่วโมงรวมที่สะสมอยู่ในรอบตัดยอดที่เลือก และอัปเดตข้อความบนแผงควบคุม
+        function updateSummary() {
+            const { start, end } = getPeriodRange(activePeriodKey);
+            start.setHours(0,0,0,0);
+            end.setHours(23,59,59,999);
+
+            // อัปเดตรายละเอียดวันที่ตัดรอบ (วิก 16 - 15)
+            const fmt = (d) => `${d.getDate()} ${thaiMonthsShort[d.getMonth()]} ${String(d.getFullYear() + 543).slice(-2)}`;
+            document.getElementById('periodText').innerText = `รอบ: ${fmt(start)} - ${fmt(end)}`;
+
+            let totalH = 0;
+
+            for (let dateStr in otData) {
+                // แยกปี/เดือน/วันแล้วสร้าง Date แบบ local time (ห้ามใช้ new Date(dateStr)
+                // ตรงๆ เพราะ JS จะตีความสตริง "YYYY-MM-DD" เป็นเวลา UTC ทำให้วันที่
+                // คลาดเคลื่อนไป 1 วันในบางโซนเวลา และอาจทำให้ยอดรวมชั่วโมงผิดพลาด)
+                const [dy, dm, dd] = dateStr.split('-').map(Number);
+                const d = new Date(dy, dm - 1, dd);
+                if (d >= start && d <= end) {
+                    const h = parseFloat(otData[dateStr]) || 0;
+                    totalH += h;
+                }
+            }
+
+            document.getElementById('totalHoursText').innerHTML = `${totalH.toFixed(2)} <span class="text-xl font-normal">ชม.</span>`;
+        }
+
+        // สั่งวาดแสดงตารางปฏิทินของเดือนปัจจุบัน
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            document.getElementById('monthYearTitle').innerText = `${thaiMonths[month]} ${year + 543}`;
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const lastDay = new Date(year, month + 1, 0).getDate();
+            const grid = document.getElementById('calendarDays');
+            grid.innerHTML = '';
+
+            for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+
+            const today = new Date();
+            for (let day = 1; day <= lastDay; day++) {
+                const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const h = otData[key] || 0;
+                const dayOfWeek = new Date(year, month, day).getDay(); // 0 = อาทิตย์, 6 = เสาร์
+                // อนุญาตให้ทำโอทีวันเสาร์ได้ (คิดเรทเท่าวันธรรมดา 1.5x) ปิดเฉพาะวันอาทิตย์
+                const isDayOff = (dayOfWeek === 0);
+
+                const btn = document.createElement('button');
+                if (isDayOff) {
+                    // วันหยุดเสาร์-อาทิตย์: บริษัทไม่อนุมัติโอที ปิดการกดและแสดงจางลง
+                    btn.disabled = true;
+                    btn.className = 'h-16 rounded-2xl flex flex-col items-center justify-center p-1 border-2 border-transparent bg-slate-50/50 relative cursor-not-allowed opacity-40';
+                } else {
+                    btn.onclick = () => openModal(key, day);
+                    btn.className = `h-16 rounded-2xl flex flex-col items-center justify-center p-1 border-2 transition relative ${
+                        h > 0 ? 'bg-indigo-50 border-indigo-100 shadow-sm' : 'bg-slate-50 border-transparent hover:border-slate-200'
+                    }`;
+                }
+
+                // มาร์กสีวงขอบเพื่อเน้นเป็น "วันนี้" ปัจจุบันตามปฏิทินสากล
+                if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                    btn.classList.add('ring-2', 'ring-indigo-500', 'ring-offset-2');
+                }
+
+                btn.innerHTML = `
+                    <span class="text-[10px] font-black text-slate-400 absolute top-1.5 left-2">${day}</span>
+                    ${h > 0 ? `
+                        <span class="text-xs font-black text-indigo-700 mt-1">${h} <span class="text-[8px]">ชม.</span></span>
+                        <div class="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1"></div>
+                    ` : ''}
+                `;
+                grid.appendChild(btn);
+            }
+        }
+
+        // --- MODAL & INSTANT SAVING INTERACTION ---
+
+        function openModal(key, day) {
+            activeDateKey = key;
+            const currentHours = otData[key] || 0;
+
+            // ปรับแต่งข้อความหัวข้อบอกวันที่ในป๊อปอัป
+            document.getElementById('modalDateLabel').innerText = `${day} ${thaiMonthsShort[currentDate.getMonth()]} ${currentDate.getFullYear() + 543}`;
+            
+            // คัดแยกไฮไลต์ปุ่มชั่วโมงที่เป็นของปัจจุบันอยู่ เพื่อให้สังเกตง่ายและมั่นใจก่อนเปลี่ยน
+            document.querySelectorAll('.hour-btn').forEach(btn => {
+                const val = parseFloat(btn.getAttribute('data-value'));
+                const checkIcon = btn.querySelector('.check-icon');
+                
+                if (val === currentHours) {
+                    btn.classList.add('border-indigo-500', 'bg-indigo-50/70', 'text-indigo-700');
+                    btn.classList.remove('border-slate-100', 'bg-slate-50', 'text-slate-700');
+                    if (checkIcon) checkIcon.classList.remove('hidden');
+                } else {
+                    btn.classList.remove('border-indigo-500', 'bg-indigo-50/70', 'text-indigo-700');
+                    btn.classList.add('border-slate-100', 'bg-slate-50', 'text-slate-700');
+                    if (checkIcon) checkIcon.classList.add('hidden');
+                }
+            });
+
+            // เปิดแสดงป๊อปอัปให้มีอนิเมชั่นเด้งเข้าเบาๆ
+            const modal = document.getElementById('otModal');
+            const card = document.getElementById('modalCard');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                card.classList.remove('scale-90');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('otModal');
+            const card = document.getElementById('modalCard');
+            modal.classList.add('opacity-0');
+            card.classList.add('scale-90');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        // บันทึกชั่วโมงโอทีทันทีเมื่อถูกแตะเลือกตัวเลข
+        function saveData(hours) {
+            const h = parseFloat(hours);
+            if (h <= 0) {
+                // หากผู้ใช้เลือกเป็น 0 ชั่วโมง หรือยกเลิกโอที ให้เคลียร์ลบฟิลด์วันนั้นทิ้งเพื่อคืนพื้นที่หน่วยความจำ
+                delete otData[activeDateKey];
+            } else {
+                otData[activeDateKey] = h;
+            }
+            
+            // บันทึกและรีเซ็ตการแสดงผลบนปฏิทินและ Dashboard เดี๋ยวนั้น
+            localStorage.setItem('otProDataHoursOnly', JSON.stringify(otData));
+            pushToSync(); // อัปโหลดขึ้นคลาวด์ทันทีถ้าเปิดซิงค์ไว้
+            closeModal();
+            updateUI();
+        }
+
+        function changeMonth(dir) {
+            currentDate.setMonth(currentDate.getMonth() + dir);
+            updateUI();
+        }
+
+        // --- SYNC FUNCTIONS (Firebase Firestore) ---
+
+        // แปลงข้อความ firebaseConfig ที่ผู้ใช้ก๊อปมาวาง (อาจไม่ใช่ JSON แท้ เพราะคีย์ไม่มีเครื่องหมายคำพูด)
+        // ให้กลายเป็นอ็อบเจกต์ config โดยไม่ต้องใช้ eval/Function เพื่อความปลอดภัย
+        function parseFirebaseConfig(text) {
+            const fields = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+            const config = {};
+            fields.forEach(f => {
+                const re = new RegExp(f + '\\s*:\\s*["\']([^"\']+)["\']');
+                const m = text.match(re);
+                if (m) config[f] = m[1];
+            });
+            return config;
+        }
+
+        function generateRandomPin() {
+            const pin = String(Math.floor(100000 + Math.random() * 900000));
+            document.getElementById('syncPinInput').value = pin;
+        }
+
+        function showSyncError(msg) {
+            const el = document.getElementById('syncErrorText');
+            document.getElementById('syncSuccessText').classList.add('hidden');
+            el.innerText = msg;
+            el.classList.remove('hidden');
+        }
+
+        function showSyncSuccess(msg) {
+            const el = document.getElementById('syncSuccessText');
+            document.getElementById('syncErrorText').classList.add('hidden');
+            el.innerText = msg;
+            el.classList.remove('hidden');
+        }
+
+        function updateSyncStatusUI() {
+            const btn = document.getElementById('syncStatusBtn');
+            const text = document.getElementById('syncStatusText');
+            if (syncEnabled) {
+                text.innerText = `ซิงค์แล้ว (${syncPin})`;
+                btn.classList.remove('bg-slate-100', 'text-slate-400');
+                btn.classList.add('bg-emerald-50', 'text-emerald-600');
+            } else {
+                text.innerText = 'ยังไม่ซิงค์';
+                btn.classList.remove('bg-emerald-50', 'text-emerald-600');
+                btn.classList.add('bg-slate-100', 'text-slate-400');
+            }
+        }
+
+        // เชื่อมต่อ Firebase แล้วเข้าสู่ระบบแบบไม่ระบุตัวตน (anonymous) จากนั้นตั้ง listener แบบเรียลไทม์
+        // isNewConnection = true เมื่อผู้ใช้กด "เชื่อมต่อซิงค์" เอง (ต้องเทียบข้อมูลคลาวด์ vs เครื่อง)
+        // isNewConnection = false เมื่อเชื่อมต่อกลับอัตโนมัติตอนเปิดแอป (ให้คลาวด์เป็นหลักผ่าน listener ได้เลย)
+        function startFirebaseSync(config, pin, isNewConnection) {
+            try {
+                const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(config);
+                syncDb = firebase.firestore();
+            } catch (e) {
+                showSyncError('เชื่อมต่อ Firebase ไม่สำเร็จ: ' + e.message);
+                return;
+            }
+
+            firebase.auth().signInAnonymously().then(() => {
+                const docRef = syncDb.collection('otSync').doc(pin);
+
+                if (isNewConnection) {
+                    docRef.get().then(snap => {
+                        if (snap.exists && snap.data().data) {
+                            // มีข้อมูลบนคลาวด์อยู่แล้ว (เครื่องอื่นเคยเชื่อมต่อรหัสนี้มาก่อน) ให้ใช้ข้อมูลคลาวด์เป็นหลัก
+                            otData = snap.data().data;
+                            localStorage.setItem('otProDataHoursOnly', JSON.stringify(otData));
+                        } else {
+                            // ยังไม่มีข้อมูลบนคลาวด์ ให้อัปโหลดข้อมูลจากเครื่องนี้ขึ้นไปตั้งต้น
+                            docRef.set({ data: otData, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                        }
+                        localStorage.setItem('otSyncConfig', JSON.stringify(config));
+                        localStorage.setItem('otSyncPin', pin);
+                        syncEnabled = true;
+                        syncPin = pin;
+                        attachSyncListener(docRef);
+                        updateUI();
+                        updateSyncStatusUI();
+                        showSyncSuccess('เชื่อมต่อสำเร็จ! นำรหัส ' + pin + ' นี้ไปกรอกที่เครื่องอื่นด้วย');
+                    }).catch(e => showSyncError('อ่านข้อมูลจากคลาวด์ไม่สำเร็จ: ' + e.message));
+                } else {
+                    syncEnabled = true;
+                    syncPin = pin;
+                    attachSyncListener(docRef);
+                    updateSyncStatusUI();
+                }
+            }).catch(e => showSyncError('ยืนยันตัวตนไม่สำเร็จ (เช็คว่าเปิด Anonymous sign-in ใน Firebase แล้วหรือยัง): ' + e.message));
+        }
+
+        function attachSyncListener(docRef) {
+            if (syncUnsub) syncUnsub();
+            syncUnsub = docRef.onSnapshot(snap => {
+                // ข้ามการแจ้งเตือนจากการเขียนของเครื่องตัวเองที่ยังไม่ยืนยันกับเซิร์ฟเวอร์ (ป้องกันเด้งซ้ำ)
+                if (snap.exists && !snap.metadata.hasPendingWrites) {
+                    otData = snap.data().data || {};
+                    localStorage.setItem('otProDataHoursOnly', JSON.stringify(otData));
+                    updateUI();
+                }
+            }, err => showSyncError('การซิงค์ขาดการเชื่อมต่อ: ' + err.message));
+        }
+
+        // อัปโหลดข้อมูลปัจจุบันขึ้นคลาวด์ทันทีที่มีการบันทึก/แก้ไขชั่วโมงโอที
+        function pushToSync() {
+            if (!syncEnabled || !syncDb || !syncPin) return;
+            syncDb.collection('otSync').doc(syncPin).set({
+                data: otData,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(e => console.error('ซิงค์ข้อมูลขึ้นคลาวด์ไม่สำเร็จ', e));
+        }
+
+        function connectSync() {
+            document.getElementById('syncErrorText').classList.add('hidden');
+            document.getElementById('syncSuccessText').classList.add('hidden');
+
+            const rawConfig = document.getElementById('firebaseConfigInput').value.trim();
+            const pin = document.getElementById('syncPinInput').value.trim();
+
+            if (!/^\d{6}$/.test(pin)) {
+                showSyncError('กรุณากรอกรหัสซิงค์ให้ครบ 6 หลัก (ตัวเลขเท่านั้น)');
+                return;
+            }
+            const config = parseFirebaseConfig(rawConfig);
+            if (!config.apiKey || !config.projectId) {
+                showSyncError('อ่านค่า Firebase Config ไม่สำเร็จ กรุณาวางโค้ดที่คัดลอกมาจาก Firebase Console ให้ครบทุกบรรทัด');
+                return;
+            }
+
+            startFirebaseSync(config, pin, true);
+        }
+
+        function disconnectSync() {
+            if (syncUnsub) { syncUnsub(); syncUnsub = null; }
+            syncEnabled = false;
+            syncPin = null;
+            localStorage.removeItem('otSyncConfig');
+            localStorage.removeItem('otSyncPin');
+            updateSyncStatusUI();
+            closeSyncModal();
+        }
+
+        // เชื่อมต่อซิงค์กลับอัตโนมัติถ้าเครื่องนี้เคยตั้งค่าไว้แล้วก่อนหน้า
+        function initSyncFromStorage() {
+            const configStr = localStorage.getItem('otSyncConfig');
+            const pin = localStorage.getItem('otSyncPin');
+            if (configStr && pin) {
+                try {
+                    const config = JSON.parse(configStr);
+                    startFirebaseSync(config, pin, false);
+                } catch (e) {
+                    console.error('โหลดการตั้งค่าซิงค์เดิมไม่สำเร็จ', e);
+                }
+            }
+        }
+
+        function openSyncModal() {
+            document.getElementById('syncErrorText').classList.add('hidden');
+            document.getElementById('syncSuccessText').classList.add('hidden');
+            document.getElementById('disconnectBtn').classList.toggle('hidden', !syncEnabled);
+            if (syncEnabled && syncPin) {
+                document.getElementById('syncPinInput').value = syncPin;
+            }
+            const modal = document.getElementById('syncModal');
+            const card = document.getElementById('syncModalCard');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                card.classList.remove('scale-90');
+            }, 10);
+        }
+
+        function closeSyncModal() {
+            const modal = document.getElementById('syncModal');
+            const card = document.getElementById('syncModalCard');
+            modal.classList.add('opacity-0');
+            card.classList.add('scale-90');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        // เริ่มสตาร์ตโปรแกรมเมื่อทำการโหลดหน้าเว็บเสร็จสิ้น
+        window.onload = init;
+
+    </script>
+</body>
+</html>
