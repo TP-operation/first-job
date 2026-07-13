@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Renal Risk Monitor — Demo</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d2137">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --navy:#0d2137;
+    --teal:#00695c;
+    --red:#b71c1c;
+    --amber:#e65100;
+    --green:#1b5e20;
+    --bg:#f4f6f7;
+    --card:#ffffff;
+    --text:#1a1a1a;
+    --muted:#6b7280;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,"Segoe UI",Roboto,"Sarabun",sans-serif;
+    background:var(--bg); color:var(--text); font-size:14px;
+  }
+  header{
+    background:var(--navy); color:#fff; padding:14px 16px;
+    position:sticky; top:0; z-index:10;
+    display:flex; align-items:center; gap:10px;
+  }
+  header img{width:32px;height:32px;border-radius:8px;}
+  header h1{font-size:16px; margin:0; font-weight:600;}
+  header .back{
+    background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;
+    padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer;
+  }
+  .demo-banner{
+    background:var(--amber); color:#fff; text-align:center;
+    font-size:12px; padding:6px 10px; font-weight:600;
+  }
+  main{padding:12px; max-width:900px; margin:0 auto;}
+  .grid{display:grid; grid-template-columns:1fr; gap:10px;}
+  @media(min-width:600px){ .grid{grid-template-columns:1fr 1fr;} }
+  @media(min-width:900px){ .grid{grid-template-columns:1fr 1fr 1fr;} }
+  .card{
+    background:var(--card); border-radius:12px; padding:14px;
+    box-shadow:0 1px 3px rgba(0,0,0,.1); cursor:pointer;
+    border-left:6px solid var(--muted);
+  }
+  .card.low{border-left-color:var(--green);}
+  .card.moderate{border-left-color:var(--amber);}
+  .card.high{border-left-color:var(--red);}
+  .card h3{margin:0 0 6px 0; font-size:15px;}
+  .row{display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:12px; color:var(--muted);}
+  .pill{
+    display:inline-block; padding:3px 10px; border-radius:999px;
+    font-size:11px; font-weight:700; color:#fff;
+  }
+  .pill.low{background:var(--green);}
+  .pill.moderate{background:var(--amber);}
+  .pill.high{background:var(--red);}
+  .dot{display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px;}
+  .dot.green{background:var(--green);}
+  .dot.yellow{background:var(--amber);}
+  .dot.red{background:var(--red);}
+  .info-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:13px;}
+  @media(max-width:480px){ .info-grid{grid-template-columns:1fr;} }
+  .info-grid div span{color:var(--muted); display:block; font-size:11px;}
+  .section{background:var(--card); border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,.1);}
+  .section h2{font-size:14px; margin:0 0 10px 0; color:var(--navy);}
+  .table-wrap{overflow-x:auto;}
+  table{border-collapse:collapse; width:100%; min-width:560px; font-size:12px;}
+  th,td{border:1px solid #e5e7eb; padding:6px 8px; text-align:left; white-space:nowrap;}
+  th{background:#f0f2f4; color:var(--navy);}
+  .action-box{
+    margin-top:10px; padding:10px 12px; border-radius:8px; font-size:13px; font-weight:600;
+  }
+  .action-box.green{background:#e8f5e9; color:var(--green);}
+  .action-box.yellow{background:#fff3e0; color:var(--amber);}
+  .action-box.red{background:#ffebee; color:var(--red);}
+  form label{display:block; font-size:12px; color:var(--muted); margin-top:8px;}
+  form input, form select{
+    width:100%; padding:8px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; margin-top:2px;
+  }
+  form button{
+    margin-top:12px; background:var(--teal); color:#fff; border:none;
+    padding:10px 16px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; width:100%;
+  }
+  .hidden{display:none;}
+  footer{padding:16px; text-align:center; font-size:11px; color:var(--muted);}
+  .tier-note{font-size:11px; color:var(--muted); margin-top:4px;}
+</style>
+</head>
+<body>
+
+<div class="demo-banner">🔧 DEMO — ข้อมูลจำลองทั้งหมด ไม่ใช่ข้อมูลผู้ป่วยจริง ยังไม่เชื่อมต่อฐานข้อมูลจริง (Google Sheet/Apps Script)</div>
+
+<header>
+  <img src="icon-192.png" alt="logo">
+  <h1 id="pageTitle">Renal Risk Monitor</h1>
+  <button class="back hidden" id="btnBack" onclick="showDashboard()">← กลับ</button>
+</header>
+
+<main>
+
+  <!-- DASHBOARD VIEW -->
+  <div id="viewDashboard">
+    <div class="section">
+      <h2>ผู้ป่วยทั้งหมด (จำลอง)</h2>
+      <div class="grid" id="patientGrid"></div>
+    </div>
+  </div>
+
+  <!-- DETAIL VIEW -->
+  <div id="viewDetail" class="hidden">
+    <div class="section">
+      <h2 id="detailName">-</h2>
+      <div class="info-grid" id="detailBaseline"></div>
+      <div id="detailActionBox"></div>
+    </div>
+
+    <div class="section">
+      <h2>ประวัติการตรวจ (Visit Records)</h2>
+      <div class="table-wrap">
+        <table id="visitTable">
+          <thead>
+            <tr>
+              <th>วันที่</th><th>SCr (mg/dL)</th><th>eGFR</th><th>ΔScr vs baseline</th>
+              <th>%eGFR เปลี่ยน</th><th>Traffic Light</th><th>นัดครั้งถัดไป</th>
+            </tr>
+          </thead>
+          <tbody id="visitTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>บันทึกผลตรวจครั้งใหม่</h2>
+      <form id="visitForm" onsubmit="addVisit(event)">
+        <label>วันที่ตรวจ</label>
+        <input type="date" id="fVisitDate" required>
+        <label>Serum Creatinine (mg/dL)</label>
+        <input type="number" step="0.01" id="fScr" required>
+        <label>Urine Protein</label>
+        <select id="fProtein">
+          <option value="negative">Negative</option>
+          <option value="trace">Trace</option>
+          <option value="positive">Positive</option>
+        </select>
+        <button type="submit">บันทึกและคำนวณ</button>
+      </form>
+      <p class="tier-note">* การคำนวณ eGFR (CKD-EPI 2021), เกณฑ์ traffic light และวันนัดถัดไป เป็นไปตามร่าง logic ที่ยังมีค่าคงที่บางส่วนรอยืนยัน (ดูหมายเหตุท้ายหน้า)</p>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  Prototype UI · Logic อ้างอิง Data_Schema_Logic_Design_Risk_Monitoring v2 · ค่าคงที่ต่อไปนี้ยังเป็น draft รอยืนยัน:
+  Baseline SCr สูง (ชาย&gt;1.3, หญิง&gt;1.1 mg/dL), High-risk follow-up แรก (+21 วัน), จำนวนครั้งติดกันสำหรับ Red criteria (2 ครั้ง)
+</footer>
+
+<script>
+/* ============ CONFIG (ค่าที่ยัง "draft" รอยืนยันจากเอกสาร schema — แก้ตรงนี้จุดเดียวเมื่อยืนยันแล้ว) ============ */
+const CONFIG = {
+  SCR_HIGH_MALE: 1.3,      // draft — ต้องเทียบกับ reference range ห้องแล็บจริง
+  SCR_HIGH_FEMALE: 1.1,    // draft
+  HIGH_RISK_FIRST_FOLLOWUP_DAYS: 21, // "2-4 สัปดาห์" ใช้ค่ากลาง 3 สัปดาห์ — draft
+  CONSECUTIVE_FOR_RED: 2   // "ต่อเนื่อง" ใน red criteria — draft
+};
+
+/* ============ CKD-EPI 2021 (race-free) ============ */
+function calcEGFR(scr, age, sex){ // scr mg/dL, sex 'M'/'F'
+  const kappa = sex === 'F' ? 0.7 : 0.9;
+  const alpha = sex === 'F' ? -0.241 : -0.302;
+  const ratio = scr / kappa;
+  const minPart = Math.pow(Math.min(ratio,1), alpha);
+  const maxPart = Math.pow(Math.max(ratio,1), -1.2);
+  let egfr = 142 * minPart * maxPart * Math.pow(0.9938, age);
+  if(sex === 'F') egfr *= 1.012;
+  return Math.round(egfr*10)/10;
+}
+
+function calcAge(dob, refDateStr){
+  const dobD = new Date(dob), ref = new Date(refDateStr);
+  let age = ref.getFullYear() - dobD.getFullYear();
+  const m = ref.getMonth() - dobD.getMonth();
+  if(m < 0 || (m === 0 && ref.getDate() < dobD.getDate())) age--;
+  return age;
+}
+
+/* ============ Baseline Risk Tier (cascading: High > Moderate > Low) ============ */
+function classifyBaselineRisk(p){
+  const scrHighCutoff = p.sex === 'F' ? CONFIG.SCR_HIGH_FEMALE : CONFIG.SCR_HIGH_MALE;
+  const comorbid = p.dm || p.ht || p.dyslipidemia || p.ckd;
+  const artYears = (new Date(p.baselineDate) - new Date(p.artStartDate)) / (365.25*24*3600*1000);
+
+  const highReasons = [];
+  if(p.ckd) highReasons.push('CKD');
+  if(p.baselineEGFR < 60) highReasons.push('eGFR baseline <60');
+  if(p.proteinuria) highReasons.push('Proteinuria');
+  if(p.baselineSCr > scrHighCutoff) highReasons.push('Baseline SCr สูงกว่าเกณฑ์');
+  if(p.nephrotoxicDrug) highReasons.push('ใช้ยา nephrotoxic ร่วม');
+  if(p.scrRiseBeforeRegimen > 0.3) highReasons.push('SCr เพิ่ม>0.3 ก่อนเริ่มสูตรปัจจุบัน');
+  if(highReasons.length) return {tier:'High', reasons:highReasons};
+
+  const modReasons = [];
+  if(p.regimen === 'TLD') modReasons.push('สูตร TLD');
+  if(p.baselineEGFR >= 60 && p.baselineEGFR < 90) modReasons.push('eGFR baseline 60-89');
+  if(p.dm) modReasons.push('DM');
+  if(p.ht) modReasons.push('HT');
+  if(p.dyslipidemia) modReasons.push('Dyslipidemia');
+  if(artYears > 5) modReasons.push('ART มานาน >5 ปี');
+  if(modReasons.length) return {tier:'Moderate', reasons:modReasons};
+
+  if(p.regimen === 'Kocitaf' && p.baselineEGFR >= 90 && !comorbid){
+    return {tier:'Low', reasons:['Kocitaf + eGFR≥90 + ไม่มีโรคร่วม']};
+  }
+  return {tier:'Low', reasons:['ไม่เข้าเกณฑ์ Moderate/High ใดเลย (edge case — โปรดตรวจสอบด้วยมือ)']};
+}
+
+/* ============ Follow-up schedule ============ */
+function nextFollowupDate(tier, baselineDate, visitIndex){
+  const d = new Date(baselineDate);
+  const schedules = {
+    Low:      [30, 180, 180],       // baseline→1m→6m→ทุก6m ถัดไป (ย่อ 6-12m เป็น 6m คงที่ในdemo)
+    Moderate: [30, 90, 180],        // baseline→1m→3m→ทุก6m
+    High:     [CONFIG.HIGH_RISK_FIRST_FOLLOWUP_DAYS, 30, 90] // baseline→2-4wk→1m→ทุก3m
+  };
+  const sched = schedules[tier];
+  const idx = Math.min(visitIndex, sched.length-1);
+  d.setDate(d.getDate() + sched[idx]);
+  return d.toISOString().slice(0,10);
+}
+
+/* ============ Traffic Light (เทียบกับ baseline เสมอ) ============ */
+function classifyTrafficLight(p, visitScr, visitEgfr, proteinuriaFlag){
+  const deltaScr = Math.round((visitScr - p.baselineSCr)*100)/100;
+  const pctEgfrChange = Math.round(((p.baselineEGFR - visitEgfr)/p.baselineEGFR)*1000)/10;
+
+  const consecutiveDeltaUp = (p._consecutiveDeltaUp||0);
+  const consecutiveProt = (p._consecutiveProteinuria||0);
+
+  if(pctEgfrChange > 25 || consecutiveDeltaUp >= CONFIG.CONSECUTIVE_FOR_RED || consecutiveProt >= CONFIG.CONSECUTIVE_FOR_RED){
+    return {light:'red', deltaScr, pctEgfrChange, action:'แจ้งแพทย์ ปรับการรักษา พิจารณาปรึกษา Nephrology'};
+  }
+  if(deltaScr > 0.3 || (pctEgfrChange >= 10 && pctEgfrChange <= 25)){
+    return {light:'yellow', deltaScr, pctEgfrChange, action:'นัดตรวจซ้ำใน 2-4 สัปดาห์ + ทบทวนยา'};
+  }
+  return {light:'green', deltaScr, pctEgfrChange, action:'ติดตามตามนัดปกติ'};
+}
+
+/* ============ Simulated / de-identified demo data (ไม่ใช่ข้อมูลผู้ป่วยจริง) ============ */
+let patients = [
+  {
+    code:'DEMO-01', sex:'F', dob:'1996-03-10', artStartDate:'2024-01-15', baselineDate:'2024-01-15',
+    regimen:'Kocitaf', baselineSCr:0.6, dm:false, ht:false, dyslipidemia:false, ckd:false,
+    proteinuria:false, nephrotoxicDrug:false, scrRiseBeforeRegimen:0, visits:[]
+  },
+  {
+    code:'DEMO-02', sex:'M', dob:'1974-06-02', artStartDate:'2018-02-01', baselineDate:'2024-02-01',
+    regimen:'TLD', baselineSCr:1.2, dm:false, ht:true, dyslipidemia:false, ckd:false,
+    proteinuria:false, nephrotoxicDrug:false, scrRiseBeforeRegimen:0, visits:[]
+  },
+  {
+    code:'DEMO-03', sex:'F', dob:'1965-09-20', artStartDate:'2015-05-10', baselineDate:'2024-03-01',
+    regimen:'TLD', baselineSCr:1.4, dm:false, ht:false, dyslipidemia:false, ckd:true,
+    proteinuria:true, nephrotoxicDrug:false, scrRiseBeforeRegimen:0, visits:[]
+  },
+  {
+    code:'DEMO-04', sex:'M', dob:'1998-11-05', artStartDate:'2024-01-20', baselineDate:'2024-01-20',
+    regimen:'Kocitaf', baselineSCr:0.9, dm:false, ht:false, dyslipidemia:false, ckd:false,
+    proteinuria:false, nephrotoxicDrug:false, scrRiseBeforeRegimen:0,
+    visits:[{date:'2024-02-20', scr:1.28, protein:'trace'}]
+  },
+  {
+    code:'DEMO-05', sex:'F', dob:'1981-04-14', artStartDate:'2019-07-01', baselineDate:'2024-01-10',
+    regimen:'TLD', baselineSCr:1.0, dm:true, ht:false, dyslipidemia:false, ckd:false,
+    proteinuria:false, nephrotoxicDrug:false, scrRiseBeforeRegimen:0,
+    visits:[{date:'2024-02-10', scr:1.6, protein:'negative'}]
+  }
+];
+
+/* ============ derive computed fields ============ */
+function derivePatient(p){
+  p.age = calcAge(p.dob, p.baselineDate);
+  p.baselineEGFR = calcEGFR(p.baselineSCr, p.age, p.sex);
+  const risk = classifyBaselineRisk(p);
+  p.riskTier = risk.tier;
+  p.riskReasons = risk.reasons;
+
+  p._consecutiveDeltaUp = 0;
+  p._consecutiveProteinuria = 0;
+  p.visitResults = p.visits.map((v, i) => {
+    const visitAge = calcAge(p.dob, v.date);
+    const egfr = calcEGFR(v.scr, visitAge, p.sex);
+    if(v.scr > p.baselineSCr) p._consecutiveDeltaUp++; else p._consecutiveDeltaUp = 0;
+    if(v.protein === 'positive') p._consecutiveProteinuria++; else p._consecutiveProteinuria = 0;
+    const tl = classifyTrafficLight(p, v.scr, egfr, v.protein);
+    const nextDate = nextFollowupDate(p.riskTier, p.baselineDate, i+1);
+    return {date:v.date, scr:v.scr, egfr, ...tl, nextDate};
+  });
+
+  p.latest = p.visitResults.length ? p.visitResults[p.visitResults.length-1]
+                                    : {light:'green', action:'ยังไม่มีการติดตาม', nextDate: nextFollowupDate(p.riskTier, p.baselineDate, 0)};
+  return p;
+}
+patients = patients.map(derivePatient);
+
+/* ============ Rendering ============ */
+let currentPatientCode = null;
+
+function tierClass(t){ return t.toLowerCase(); }
+function lightLabel(l){ return {green:'ปกติ (Green)', yellow:'เฝ้าระวัง (Yellow)', red:'ส่งต่อด่วน (Red)'}[l]; }
+
+function renderDashboard(){
+  const grid = document.getElementById('patientGrid');
+  grid.innerHTML = '';
+  patients.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'card ' + tierClass(p.riskTier);
+    div.onclick = () => showDetail(p.code);
+    div.innerHTML = `
+      <h3>${p.code}</h3>
+      <span class="pill ${tierClass(p.riskTier)}">${p.riskTier} risk</span>
+      <div class="row"><span><span class="dot ${p.latest.light}"></span>${lightLabel(p.latest.light)}</span></div>
+      <div class="row"><span>นัดถัดไป</span><span>${p.latest.nextDate}</span></div>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+function showDashboard(){
+  document.getElementById('viewDashboard').classList.remove('hidden');
+  document.getElementById('viewDetail').classList.add('hidden');
+  document.getElementById('btnBack').classList.add('hidden');
+  document.getElementById('pageTitle').textContent = 'Renal Risk Monitor';
+  renderDashboard();
+}
+
+function showDetail(code){
+  currentPatientCode = code;
+  const p = patients.find(x => x.code === code);
+  document.getElementById('viewDashboard').classList.add('hidden');
+  document.getElementById('viewDetail').classList.remove('hidden');
+  document.getElementById('btnBack').classList.remove('hidden');
+  document.getElementById('pageTitle').textContent = p.code;
+  document.getElementById('detailName').textContent = `${p.code} — ${p.riskTier} risk`;
+
+  document.getElementById('detailBaseline').innerHTML = `
+    <div><span>เพศ / อายุ (ณ baseline)</span>${p.sex === 'F' ? 'หญิง' : 'ชาย'} / ${p.age} ปี</div>
+    <div><span>สูตรยา</span>${p.regimen}</div>
+    <div><span>Baseline SCr</span>${p.baselineSCr} mg/dL</div>
+    <div><span>Baseline eGFR (CKD-EPI 2021)</span>${p.baselineEGFR} mL/min/1.73m²</div>
+    <div><span>โรคร่วม</span>${[p.dm&&'DM',p.ht&&'HT',p.dyslipidemia&&'Dyslipidemia',p.ckd&&'CKD'].filter(Boolean).join(', ')||'ไม่มี'}</div>
+    <div><span>เหตุผลจัดระดับ</span>${p.riskReasons.join('; ')}</div>
+  `;
+
+  const box = document.getElementById('detailActionBox');
+  box.innerHTML = `<div class="action-box ${p.latest.light}">${lightLabel(p.latest.light)} — ${p.latest.action}</div>`;
+
+  const tbody = document.getElementById('visitTbody');
+  tbody.innerHTML = '';
+  p.visitResults.forEach(v => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${v.date}</td><td>${v.scr}</td><td>${v.egfr}</td>
+      <td>${v.deltaScr > 0 ? '+' : ''}${v.deltaScr}</td>
+      <td>${v.pctEgfrChange}%</td>
+      <td><span class="dot ${v.light}"></span>${lightLabel(v.light)}</td>
+      <td>${v.nextDate}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('fVisitDate').value = '';
+  document.getElementById('fScr').value = '';
+}
+
+function addVisit(e){
+  e.preventDefault();
+  const p = patients.find(x => x.code === currentPatientCode);
+  const date = document.getElementById('fVisitDate').value;
+  const scr = parseFloat(document.getElementById('fScr').value);
+  const protein = document.getElementById('fProtein').value;
+  if(!date || isNaN(scr)){ alert('กรอกวันที่และค่า SCr ให้ครบ'); return; }
+  p.visits.push({date, scr, protein});
+  derivePatient(p);
+  showDetail(p.code);
+}
+
+showDashboard();
+
+/* ============ PWA install ============ */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW register failed', err));
+  });
+}
+</script>
+</body>
+</html>
