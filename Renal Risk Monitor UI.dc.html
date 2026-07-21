@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#f2efe9;font-family:'Sarabun',system-ui,sans-serif;}
+  .dv-turn{padding:40px 44px 70px;scroll-margin-top:16px;}
+  .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 26px;}
+  .dv-tid{font:700 10px ui-monospace,Menlo,monospace;padding:3px 8px;background:#2c2233;color:#fff;border-radius:5px;text-decoration:none;}
+  .dv-tname{font:700 16px/1.2 'Sarabun',sans-serif;color:#2c2233;}
+  .dv-opts{display:flex;flex-wrap:wrap;gap:38px;align-items:flex-start;}
+  .dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px;}
+  .dv-oid{font:700 11px ui-monospace,Menlo,monospace;padding:3px 9px;background:rgba(0,0,0,.08);color:#2c2233;border-radius:6px;text-decoration:none;}
+  .dv-olabel{display:flex;align-items:baseline;gap:8px;font:600 13px/1.3 'Sarabun',sans-serif;color:rgba(0,0,0,.65);}
+  .dv-card{background:#161616;border-radius:38px;padding:10px;box-shadow:0 10px 34px rgba(0,0,0,.2);}
+  .dv-opt:target .dv-oid{background:#2a78d6;color:#fff;}
+  .dv-next{margin:30px 0 0;font:13px/1.65 'Sarabun',sans-serif;color:rgba(0,0,0,.55);max-width:760px;}
+  a{color:#2a78d6;}
+  a:hover{color:#1c5aa0;}
+  .phone-scroll::-webkit-scrollbar{width:0;height:0;}
+  input,select,textarea{font-family:'Sarabun',sans-serif;}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Renal Risk Monitor — mobile UI (pastel, minimal)</span></div>
+  <div class="dv-opts">
+    <sc-for list="{{variants}}" as="v" hint-placeholder-count="3">
+      <div class="dv-opt" id="{{v.badge}}">
+        <div class="dv-olabel"><a class="dv-oid" href="#{{v.badge}}">{{v.badge}}</a>{{v.name}}</div>
+        <div class="dv-card" style="width:364px;">
+          <div style="width:344px;height:720px;border-radius:30px;overflow:hidden;background:{{v.theme.bg}};display:flex;flex-direction:column;position:relative;">
+
+            <div style="background:#fde68a;color:#7a4a00;font-size:9px;text-align:center;padding:4px 6px;font-weight:700;letter-spacing:.2px;flex:none;">DEMO — ข้อมูลจำลอง ไม่ใช่ผู้ป่วยจริง</div>
+
+            <div style="background:{{v.theme.primary}};color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex:none;">
+              <sc-if value="{{v.showBack}}" hint-placeholder-val="{{false}}">
+                <button onclick="{{v.onBack}}" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:10px;font-size:16px;cursor:pointer;flex:none;">←</button>
+              </sc-if>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{v.headerTitle}}</div>
+                <sc-if value="{{v.showBack}}" hint-placeholder-val="{{false}}">
+                  <div style="font-size:11px;opacity:.85;margin-top:2px;">{{v.selected.sexLabel}} · {{v.selected.age}} ปี · {{v.selected.regimen}}</div>
+                </sc-if>
+              </div>
+              <sc-if value="{{v.showAddBtn}}" hint-placeholder-val="{{false}}">
+                <button onclick="{{v.onToggleAddPatient}}" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:10px;font-size:18px;line-height:1;cursor:pointer;flex:none;">+</button>
+              </sc-if>
+              <sc-if value="{{v.showBack}}" hint-placeholder-val="{{false}}">
+                <span style="background:{{v.selected.tierMeta.bg}};color:{{v.selected.tierMeta.fg}};font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap;flex:none;">{{v.selected.riskTier}}</span>
+              </sc-if>
+            </div>
+
+            <div class="phone-scroll" style="flex:1;overflow-y:auto;padding:14px;">
+
+              <sc-if value="{{v.showBack}}" hint-placeholder-val="{{false}}">
+                <div style="background:{{v.theme.surface}};border-radius:16px;padding:14px;margin-bottom:10px;">
+                  <div style="font-size:12px;font-weight:700;color:{{v.theme.textPrimary}};margin-bottom:8px;">ข้อมูลผู้ป่วย</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;color:{{v.theme.textPrimary}};">
+                    <div><span style="display:block;font-size:10px;color:{{v.theme.muted}};margin-bottom:2px;">Baseline SCr</span>{{v.selected.baselineSCr}} mg/dL</div>
+                    <div><span style="display:block;font-size:10px;color:{{v.theme.muted}};margin-bottom:2px;">Baseline eGFR</span>{{v.selected.baselineEGFR}}</div>
+                    <div><span style="display:block;font-size:10px;color:{{v.theme.muted}};margin-bottom:2px;">โรคร่วม</span>{{v.selected.comorbidText}}</div>
+                    <div><span style="display:block;font-size:10px;color:{{v.theme.muted}};margin-bottom:2px;">เหตุผลความเสี่ยง</span>{{v.selected.reasonsText}}</div>
+                  </div>
+                </div>
+
+                <div style="background:{{v.selected.latest.lightMeta.bg}};color:{{v.selected.latest.lightMeta.fg}};border-radius:14px;padding:12px 14px;margin-bottom:10px;font-size:12px;font-weight:700;">
+                  {{v.selected.latest.lightMeta.label}} — {{v.selected.latest.action}}
+                </div>
+
+                <div style="background:{{v.theme.surface}};border-radius:16px;padding:14px;margin-bottom:10px;">
+                  <div style="font-size:12px;font-weight:700;color:{{v.theme.textPrimary}};margin-bottom:6px;">แนวโน้ม SCr / eGFR</div>
+                  {{v.trendChart}}
+                  <div style="display:flex;gap:12px;font-size:10px;color:{{v.theme.muted}};margin-top:4px;">
+                    <span>— SCr</span><span>┄ eGFR</span>
+                  </div>
+                </div>
+
+                <div style="font-size:12px;font-weight:700;color:{{v.theme.textPrimary}};margin:6px 0 8px;">ประวัติการตรวจ</div>
+                <sc-for list="{{v.selected.visitResults}}" as="visit" hint-placeholder-count="1">
+                  <div style="background:{{v.theme.surface}};border-radius:14px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                    <div style="min-width:0;">
+                      <div style="font-size:12px;font-weight:700;color:{{v.theme.textPrimary}};">{{visit.date}}</div>
+                      <div style="font-size:11px;color:{{v.theme.muted}};margin-top:3px;">SCr {{visit.scr}} · eGFR {{visit.egfr}} ({{visit.deltaScrDisplay}})</div>
+                      <div style="font-size:11px;color:{{v.theme.muted}};margin-top:2px;">BP {{visit.bp}} · นัดถัดไป {{visit.nextDate}}</div>
+                    </div>
+                    <span style="background:{{visit.lightMeta.bg}};color:{{visit.lightMeta.fg}};font-size:10px;font-weight:700;padding:4px 8px;border-radius:999px;white-space:nowrap;flex:none;">{{visit.lightMeta.label}}</span>
+                  </div>
+                </sc-for>
+
+                <div style="background:{{v.theme.surface}};border-radius:16px;padding:14px;margin-top:6px;">
+                  <div style="font-size:12px;font-weight:700;color:{{v.theme.textPrimary}};margin-bottom:8px;">+ บันทึกผลตรวจใหม่</div>
+                  <form onsubmit="{{v.onAddVisitSubmit}}">
+                    <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">วันที่ตรวจ</label>
+                    <input name="date" type="date" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                    <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">Serum Creatinine (mg/dL)</label>
+                    <input name="scr" type="number" step="0.01" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                    <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">Urinalysis</label>
+                    <select name="urinalysis" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                      <option value="Normal">Normal</option><option value="Abnormal">Abnormal</option><option value="Not done">Not done</option>
+                    </select>
+                    <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">Urine Protein</label>
+                    <select name="protein" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                      <option value="negative">Negative</option><option value="trace">Trace</option><option value="1+">1+</option><option value="2+">2+</option><option value="3+">3+</option>
+                    </select>
+                    <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">Blood Pressure</label>
+                    <input name="bp" type="text" placeholder="เช่น 120/80" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                    <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">น้ำหนักตัว (kg)</label>
+                    <input name="weight" type="number" step="0.1" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                    <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">Medication Review</label>
+                    <textarea name="medReview" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;min-height:42px;box-sizing:border-box;resize:vertical;"></textarea>
+                    <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">Recommendation</label>
+                    <textarea name="recommendation" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;min-height:42px;box-sizing:border-box;resize:vertical;"></textarea>
+                    <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">Next Follow-up (ปรับได้)</label>
+                    <input name="nextFollowup" type="date" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                    <button type="submit" style="width:100%;margin-top:12px;background:{{v.theme.primary}};color:#fff;border:none;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">บันทึกและคำนวณ</button>
+                  </form>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{v.tabIsDashboard}}" hint-placeholder-val="{{false}}">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+                  <div style="background:{{v.theme.surface}};border-radius:14px;padding:12px;text-align:center;">
+                    <div style="font-size:22px;font-weight:800;color:{{v.theme.textPrimary}};">{{v.allCount}}</div>
+                    <div style="font-size:10px;color:{{v.theme.muted}};margin-top:2px;">ผู้ป่วยทั้งหมด</div>
+                  </div>
+                  <div style="background:{{v.theme.surface}};border-radius:14px;padding:12px;text-align:center;">
+                    <div style="font-size:22px;font-weight:800;color:{{v.theme.textPrimary}};">{{v.dueTodayCount}}</div>
+                    <div style="font-size:10px;color:{{v.theme.muted}};margin-top:2px;">ต้องติดตามวันนี้</div>
+                  </div>
+                  <div style="background:#e2f5ea;border-radius:14px;padding:12px;text-align:center;">
+                    <div style="font-size:22px;font-weight:800;color:#1f7a43;">{{v.greenCount}}</div>
+                    <div style="font-size:10px;color:#1f7a43;margin-top:2px;">Green</div>
+                  </div>
+                  <div style="background:#fde3e1;border-radius:14px;padding:12px;text-align:center;">
+                    <div style="font-size:22px;font-weight:800;color:#b3261e;">{{v.redCount}}</div>
+                    <div style="font-size:10px;color:#b3261e;margin-top:2px;">Red</div>
+                  </div>
+                </div>
+                <div style="font-size:12px;font-weight:700;color:{{v.theme.textPrimary}};margin-bottom:8px;">ต้องติดตามวันนี้</div>
+                <sc-for list="{{v.dueToday}}" as="p" hint-placeholder-count="1">
+                  <div onclick="{{p.onClick}}" style="background:{{v.theme.surface}};border-radius:14px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;border-left:4px solid {{p.latest.lightMeta.dot}};">
+                    <div><div style="font-size:13px;font-weight:700;color:{{v.theme.textPrimary}};">{{p.code}}</div><div style="font-size:11px;color:{{v.theme.muted}};margin-top:2px;">{{p.riskTier}} risk</div></div>
+                    <span style="background:{{p.latest.lightMeta.bg}};color:{{p.latest.lightMeta.fg}};font-size:10px;font-weight:700;padding:4px 8px;border-radius:999px;">{{p.latest.lightMeta.label}}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{v.noDueToday}}" hint-placeholder-val="{{false}}">
+                  <div style="font-size:12px;color:{{v.theme.muted}};padding:6px 2px;">ไม่มีผู้ป่วยที่ต้องติดตามวันนี้</div>
+                </sc-if>
+              </sc-if>
+
+              <sc-if value="{{v.tabIsPatients}}" hint-placeholder-val="{{false}}">
+                <sc-if value="{{v.ui.showAddPatient}}" hint-placeholder-val="{{false}}">
+                  <div style="background:{{v.theme.surface}};border-radius:16px;padding:14px;margin-bottom:12px;">
+                    <div style="font-size:12px;font-weight:700;color:{{v.theme.textPrimary}};margin-bottom:8px;">เพิ่มผู้ป่วยใหม่</div>
+                    <form onsubmit="{{v.onAddPatientSubmit}}">
+                      <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:4px;">รหัสผู้ป่วย</label>
+                      <input name="code" type="text" required style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                      <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">เพศ</label>
+                      <select name="sex" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                        <option value="F">หญิง</option><option value="M">ชาย</option>
+                      </select>
+                      <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">วันเกิด</label>
+                      <input name="dob" type="date" required style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                      <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">วันเริ่ม ART</label>
+                      <input name="artStart" type="date" required style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                      <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">วันประเมิน Baseline</label>
+                      <input name="baselineDate" type="date" required style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                      <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">สูตรยา</label>
+                      <select name="regimen" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                        <option value="Kocitaf">Kocitaf</option><option value="TLD">TLD</option><option value="Other">อื่นๆ</option>
+                      </select>
+                      <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">Baseline SCr (mg/dL)</label>
+                      <input name="baselineSCr" type="number" step="0.01" required style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                      <label style="font-size:11px;color:{{v.theme.muted}};display:block;margin-top:6px;">ยา nephrotoxic ร่วม?</label>
+                      <select name="nephrotoxic" style="width:100%;padding:8px;border:1px solid rgba(0,0,0,.12);border-radius:8px;margin-top:2px;font-size:13px;box-sizing:border-box;">
+                        <option value="no">ไม่มี</option><option value="yes">มี</option>
+                      </select>
+                      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:12px;color:{{v.theme.textPrimary}};">
+                        <label style="display:flex;align-items:center;gap:4px;"><input name="dm" type="checkbox">DM</label>
+                        <label style="display:flex;align-items:center;gap:4px;"><input name="ht" type="checkbox">HT</label>
+                        <label style="display:flex;align-items:center;gap:4px;"><input name="dyslipidemia" type="checkbox">Dyslipidemia</label>
+                        <label style="display:flex;align-items:center;gap:4px;"><input name="ckd" type="checkbox">CKD</label>
+                        <label style="display:flex;align-items:center;gap:4px;"><input name="proteinuria" type="checkbox">Proteinuria</label>
+                      </div>
+                      <button type="submit" style="width:100%;margin-top:12px;background:{{v.theme.primary}};color:#fff;border:none;padding:11px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">บันทึกผู้ป่วยใหม่</button>
+                    </form>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{v.isSegmented}}" hint-placeholder-val="{{false}}">
+                  <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;">
+                    <sc-for list="{{v.chips}}" as="chip" hint-placeholder-count="4">
+                      <button onclick="{{chip.onClick}}" style="background:{{chip.bg}};color:{{chip.fg}};border:1px solid {{chip.border}};padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;flex:none;">{{chip.label}}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{v.isGrid}}" hint-placeholder-val="{{false}}">
+                  <sc-for list="{{v.patientsList}}" as="p" hint-placeholder-count="3">
+                    <div onclick="{{p.onClick}}" style="background:{{v.theme.surface}};border-radius:16px;padding:14px;margin-bottom:10px;cursor:pointer;border-left:5px solid {{p.latest.lightMeta.dot}};">
+                      <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div style="font-size:14px;font-weight:700;color:{{v.theme.textPrimary}};">{{p.code}}</div>
+                        <span style="background:{{p.tierMeta.bg}};color:{{p.tierMeta.fg}};font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;">{{p.riskTier}}</span>
+                      </div>
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;color:{{v.theme.muted}};">
+                        <span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:{{p.latest.lightMeta.dot}};display:inline-block;"></span>{{p.latest.lightMeta.label}}</span>
+                        <span>นัดถัดไป {{p.latest.nextDate}}</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                </sc-if>
+
+                <sc-if value="{{v.isDense}}" hint-placeholder-val="{{false}}">
+                  <sc-for list="{{v.patientsList}}" as="p" hint-placeholder-count="3">
+                    <div onclick="{{p.onClick}}" style="background:{{v.theme.surface}};border-radius:10px;padding:9px 12px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:10px;border-left:4px solid {{p.latest.lightMeta.dot}};">
+                      <div style="flex:1;min-width:0;">
+                        <div style="font-size:13px;font-weight:700;color:{{v.theme.textPrimary}};">{{p.code}} <span style="font-weight:600;color:{{v.theme.muted}};font-size:11px;">· {{p.riskTier}}</span></div>
+                      </div>
+                      <div style="font-size:10px;color:{{v.theme.muted}};white-space:nowrap;">{{p.latest.nextDate}}</div>
+                      <span style="background:{{p.latest.lightMeta.bg}};color:{{p.latest.lightMeta.fg}};font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;">{{p.latest.lightMeta.label}}</span>
+                    </div>
+                  </sc-for>
+                </sc-if>
+
+                <sc-if value="{{v.isSegmented}}" hint-placeholder-val="{{false}}">
+                  <sc-for list="{{v.patientsList}}" as="p" hint-placeholder-count="3">
+                    <div onclick="{{p.onClick}}" style="background:{{v.theme.surface}};border-radius:16px;padding:12px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:10px;">
+                      <div style="width:36px;height:36px;border-radius:50%;background:{{v.theme.primarySoft}};color:{{v.theme.primary}};font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">{{p.initials}}</div>
+                      <div style="flex:1;min-width:0;">
+                        <div style="font-size:13px;font-weight:700;color:{{v.theme.textPrimary}};">{{p.code}}</div>
+                        <div style="font-size:10px;color:{{v.theme.muted}};margin-top:2px;">{{p.riskTier}} · นัด {{p.latest.nextDate}}</div>
+                      </div>
+                      <span style="background:{{p.latest.lightMeta.bg}};color:{{p.latest.lightMeta.fg}};font-size:10px;font-weight:700;padding:4px 8px;border-radius:999px;white-space:nowrap;flex:none;">{{p.latest.lightMeta.label}}</span>
+                    </div>
+                  </sc-for>
+                </sc-if>
+              </sc-if>
+
+              <sc-if value="{{v.tabIsSettings}}" hint-placeholder-val="{{false}}">
+                <div style="background:{{v.theme.surface}};border-radius:16px;padding:16px;margin-bottom:10px;">
+                  <div style="font-size:13px;font-weight:700;color:{{v.theme.textPrimary}};">เภสัชกรผู้ดูแล (Demo)</div>
+                  <div style="font-size:11px;color:{{v.theme.muted}};margin-top:4px;">คลินิกโรคไต · เวอร์ชันสาธิต 1.0</div>
+                </div>
+                <div style="background:{{v.theme.surface}};border-radius:16px;padding:16px;">
+                  <div style="font-size:12px;color:{{v.theme.textPrimary}};">เกณฑ์ traffic light และวันนัด อ้างอิง Data Schema Logic v4</div>
+                </div>
+              </sc-if>
+
+            </div>
+
+            <div style="display:flex;border-top:1px solid rgba(0,0,0,.08);background:{{v.theme.surface}};flex:none;">
+              <button onclick="{{v.onTabDashboard}}" style="flex:1;background:none;border:none;padding:10px 4px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                <span style="width:7px;height:7px;border-radius:50%;background:{{v.navDashboardColor}};display:block;"></span>
+                <span style="font-size:10px;font-weight:600;color:{{v.navDashboardColor}};">ภาพรวม</span>
+              </button>
+              <button onclick="{{v.onTabPatients}}" style="flex:1;background:none;border:none;padding:10px 4px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                <span style="width:7px;height:7px;border-radius:50%;background:{{v.navPatientsColor}};display:block;"></span>
+                <span style="font-size:10px;font-weight:600;color:{{v.navPatientsColor}};">ผู้ป่วย</span>
+              </button>
+              <button onclick="{{v.onTabSettings}}" style="flex:1;background:none;border:none;padding:10px 4px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                <span style="width:7px;height:7px;border-radius:50%;background:{{v.navSettingsColor}};display:block;"></span>
+                <span style="font-size:10px;font-weight:600;color:{{v.navSettingsColor}};">ตั้งค่า</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <p class="dv-next">ลองพิมพ์ต่อได้ เช่น "ทำ <a class="dv-oid" href="#1b">1b</a> เป็นแบบหลัก แล้วปรับฟอร์มให้เข้าธีมนี้" · "รวม <a class="dv-oid" href="#1a">1a</a> กับ filter chip ของ <a class="dv-oid" href="#1c">1c</a>" · "ขอโทนสีอื่นเพิ่ม"</p>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.CONFIG = { SCR_HIGH_MALE: 1.3, SCR_HIGH_FEMALE: 1.1, CONSECUTIVE_FOR_RED: 3 };
+
+    const rawPatients = [
+      { code:'PT001', sex:'F', dob:'1996-03-10', artStartDate:'2024-01-15', baselineDate:'2024-01-15',
+        regimen:'Kocitaf', baselineSCr:0.6, dm:false, ht:false, dyslipidemia:false, ckd:false,
+        proteinuria:false, nephrotoxicDrug:false, visits:[] },
+      { code:'PT002', sex:'M', dob:'1974-06-02', artStartDate:'2018-02-01', baselineDate:'2024-02-01',
+        regimen:'TLD', baselineSCr:1.2, dm:false, ht:true, dyslipidemia:false, ckd:false,
+        proteinuria:false, nephrotoxicDrug:false,
+        visits:[{date:'2024-03-01', scr:1.25, urinalysis:'Normal', protein:'negative', bp:'126/80', weight:74}] },
+      { code:'PT003', sex:'F', dob:'1965-09-20', artStartDate:'2015-05-10', baselineDate:'2024-03-01',
+        regimen:'TLD', baselineSCr:1.4, dm:false, ht:false, dyslipidemia:false, ckd:true,
+        proteinuria:true, nephrotoxicDrug:false,
+        visits:[{date:'2024-04-05', scr:2.0, urinalysis:'Abnormal', protein:'2+', bp:'150/95', weight:58}] },
+      { code:'PT004', sex:'M', dob:'1998-11-05', artStartDate:'2024-01-20', baselineDate:'2024-01-20',
+        regimen:'Kocitaf', baselineSCr:0.9, dm:false, ht:false, dyslipidemia:false, ckd:false,
+        proteinuria:false, nephrotoxicDrug:false,
+        visits:[{date:'2024-02-20', scr:1.28, urinalysis:'Normal', protein:'trace', bp:'128/82', weight:68}] },
+      { code:'PT005', sex:'F', dob:'1981-04-14', artStartDate:'2019-07-01', baselineDate:'2024-01-10',
+        regimen:'TLD', baselineSCr:1.0, dm:true, ht:false, dyslipidemia:false, ckd:false,
+        proteinuria:false, nephrotoxicDrug:false,
+        visits:[{date:'2024-02-10', scr:1.6, urinalysis:'Abnormal', protein:'negative', bp:'118/76', weight:55}] },
+      { code:'PT006', sex:'M', dob:'1990-01-01', artStartDate:'2023-01-01', baselineDate:'2023-01-01',
+        regimen:'Kocitaf', baselineSCr:0.85, dm:false, ht:false, dyslipidemia:false, ckd:false,
+        proteinuria:false, nephrotoxicDrug:false,
+        visits:[{date:this.todayStr(), scr:0.9, urinalysis:'Normal', protein:'negative', bp:'115/75', weight:70}] }
+    ];
+
+    this.state = {
+      patients: rawPatients.map(p => this.derivePatient(p)),
+      ui: {
+        v1:{ tab:'dashboard', screen:'list', selectedCode:null, filter:'all', showAddPatient:false },
+        v2:{ tab:'dashboard', screen:'list', selectedCode:null, filter:'all', showAddPatient:false },
+        v3:{ tab:'dashboard', screen:'list', selectedCode:null, filter:'all', showAddPatient:false }
+      }
+    };
+  }
+
+  todayStr(){ return new Date().toISOString().slice(0,10); }
+  calcAge(dob, refDateStr){
+    const dobD = new Date(dob), ref = new Date(refDateStr);
+    let age = ref.getFullYear() - dobD.getFullYear();
+    const m = ref.getMonth() - dobD.getMonth();
+    if(m < 0 || (m === 0 && ref.getDate() < dobD.getDate())) age--;
+    return age;
+  }
+  calcEGFR(scr, age, sex){
+    const kappa = sex === 'F' ? 0.7 : 0.9;
+    const alpha = sex === 'F' ? -0.241 : -0.302;
+    const ratio = scr / kappa;
+    const minPart = Math.pow(Math.min(ratio,1), alpha);
+    const maxPart = Math.pow(Math.max(ratio,1), -1.2);
+    let egfr = 142 * minPart * maxPart * Math.pow(0.9938, age);
+    if(sex === 'F') egfr *= 1.012;
+    return Math.round(egfr*10)/10;
+  }
+  classifyBaselineRisk(p){
+    const scrHighCutoff = p.sex === 'F' ? this.CONFIG.SCR_HIGH_FEMALE : this.CONFIG.SCR_HIGH_MALE;
+    const comorbid = p.dm || p.ht || p.dyslipidemia || p.ckd;
+    const artYears = (new Date(p.baselineDate) - new Date(p.artStartDate)) / (365.25*24*3600*1000);
+
+    const highReasons = [];
+    if(p.ckd) highReasons.push('CKD');
+    if(p.baselineEGFR < 60) highReasons.push('eGFR baseline <60');
+    if(p.proteinuria) highReasons.push('Proteinuria');
+    if(p.baselineSCr > scrHighCutoff) highReasons.push('Baseline SCr สูงกว่าเกณฑ์');
+    if(p.nephrotoxicDrug) highReasons.push('ใช้ยา nephrotoxic ร่วม');
+    if(highReasons.length) return {tier:'High', reasons:highReasons};
+
+    const modReasons = [];
+    if(p.regimen === 'TLD') modReasons.push('สูตร TLD');
+    if(p.baselineEGFR >= 60 && p.baselineEGFR < 90) modReasons.push('eGFR baseline 60-89');
+    if(p.dm) modReasons.push('DM');
+    if(p.ht) modReasons.push('HT');
+    if(p.dyslipidemia) modReasons.push('Dyslipidemia');
+    if(artYears > 5) modReasons.push('ART มานาน >5 ปี');
+    if(modReasons.length) return {tier:'Moderate', reasons:modReasons};
+
+    if(p.regimen === 'Kocitaf' && p.baselineEGFR >= 90 && !comorbid){
+      return {tier:'Low', reasons:['Kocitaf + eGFR≥90 + ไม่มีโรคร่วม']};
+    }
+    return {tier:'Low', reasons:['ไม่เข้าเกณฑ์ Moderate/High ใดเลย']};
+  }
+  nextFollowupDate(tier, baselineDate, visitIndex){
+    const d = new Date(baselineDate);
+    const schedules = { Low:[30,180,180], Moderate:[30,90,180], High:[90] };
+    const sched = schedules[tier];
+    const idx = Math.min(visitIndex, sched.length-1);
+    d.setDate(d.getDate() + sched[idx]);
+    return d.toISOString().slice(0,10);
+  }
+  classifyTrafficLight(p, visitScr, visitEgfr, consecutiveDeltaUp, consecutiveProteinuria){
+    const deltaScr = Math.round((visitScr - p.baselineSCr)*100)/100;
+    const pctEgfrChange = Math.round(((p.baselineEGFR - visitEgfr)/p.baselineEGFR)*1000)/10;
+    if(pctEgfrChange > 25 || consecutiveDeltaUp >= this.CONFIG.CONSECUTIVE_FOR_RED || consecutiveProteinuria >= this.CONFIG.CONSECUTIVE_FOR_RED){
+      return {light:'red', deltaScr, pctEgfrChange, action:'แจ้งแพทย์ ปรับการรักษา พิจารณาปรึกษา Nephrology'};
+    }
+    if(deltaScr > 0.3 || (pctEgfrChange >= 10 && pctEgfrChange <= 25)){
+      return {light:'yellow', deltaScr, pctEgfrChange, action:'นัดตรวจซ้ำใน 2-4 สัปดาห์ + ทบทวนยา'};
+    }
+    return {light:'green', deltaScr, pctEgfrChange, action:'ติดตามตามนัดปกติ'};
+  }
+  mapLight(light){
+    const table = {
+      green:{ bg:'#e2f5ea', fg:'#1f7a43', dot:'#2e9e5b', label:'ปกติ' },
+      yellow:{ bg:'#fff2d6', fg:'#8a5a00', dot:'#d99a1b', label:'เฝ้าระวัง' },
+      red:{ bg:'#fde3e1', fg:'#b3261e', dot:'#e0453a', label:'ส่งต่อด่วน' }
+    };
+    return table[light] || table.green;
+  }
+  mapTier(tier){
+    const table = {
+      Low:{ bg:'#e2f5ea', fg:'#1f7a43' },
+      Moderate:{ bg:'#fff2d6', fg:'#8a5a00' },
+      High:{ bg:'#fde3e1', fg:'#b3261e' }
+    };
+    return table[tier] || table.Low;
+  }
+  derivePatient(p){
+    p.age = this.calcAge(p.dob, p.baselineDate);
+    p.baselineEGFR = this.calcEGFR(p.baselineSCr, p.age, p.sex);
+    const risk = this.classifyBaselineRisk(p);
+    p.riskTier = risk.tier;
+    p.riskReasons = risk.reasons;
+    p.reasonsText = risk.reasons.join('; ');
+    p.tierMeta = this.mapTier(p.riskTier);
+    p.comorbidText = [p.dm&&'DM', p.ht&&'HT', p.dyslipidemia&&'Dyslipidemia', p.ckd&&'CKD'].filter(Boolean).join(', ') || 'ไม่มี';
+    p.sexLabel = p.sex === 'F' ? 'หญิง' : 'ชาย';
+    p.initials = p.code.replace('PT','').slice(0,2);
+
+    let consecutiveDeltaUp = 0, consecutiveProteinuria = 0;
+    p.visitResults = p.visits.map((v,i) => {
+      const visitAge = this.calcAge(p.dob, v.date);
+      const egfr = this.calcEGFR(v.scr, visitAge, p.sex);
+      if(v.scr > p.baselineSCr) consecutiveDeltaUp++; else consecutiveDeltaUp = 0;
+      if(v.protein === 'positive' || v.protein === '2+' || v.protein === '3+') consecutiveProteinuria++; else consecutiveProteinuria = 0;
+      const tl = this.classifyTrafficLight(p, v.scr, egfr, consecutiveDeltaUp, consecutiveProteinuria);
+      const autoNext = this.nextFollowupDate(p.riskTier, p.baselineDate, i+1);
+      return {
+        date:v.date, scr:v.scr, egfr,
+        deltaScr:tl.deltaScr, deltaScrDisplay:(tl.deltaScr>0?'+':'')+tl.deltaScr,
+        pctEgfrChange:tl.pctEgfrChange, light:tl.light, action:tl.action,
+        lightMeta:this.mapLight(tl.light),
+        urinalysis:v.urinalysis||'-', protein:v.protein||'-', bp:v.bp||'-', weight:v.weight||'-',
+        medReview:v.medReview||'', recommendation:v.recommendation||'',
+        nextDate: v.nextFollowupOverride || autoNext
+      };
+    });
+
+    p.latest = p.visitResults.length ? p.visitResults[p.visitResults.length-1]
+      : { light:'green', action:'ยังไม่มีการติดตาม', nextDate:this.nextFollowupDate(p.riskTier, p.baselineDate, 0), lightMeta:this.mapLight('green') };
+    return p;
+  }
+
+  selectPatient = (vid, code) => {
+    this.setState(s => ({ ui:{ ...s.ui, [vid]:{ ...s.ui[vid], screen:'detail', selectedCode:code } } }));
+  };
+  goBack = (vid) => {
+    this.setState(s => ({ ui:{ ...s.ui, [vid]:{ ...s.ui[vid], screen:'list' } } }));
+  };
+  setTab = (vid, tab) => {
+    this.setState(s => ({ ui:{ ...s.ui, [vid]:{ ...s.ui[vid], tab, screen:'list' } } }));
+  };
+  setFilter = (vid, f) => {
+    this.setState(s => ({ ui:{ ...s.ui, [vid]:{ ...s.ui[vid], filter:f } } }));
+  };
+  toggleAddPatient = (vid) => {
+    this.setState(s => ({ ui:{ ...s.ui, [vid]:{ ...s.ui[vid], showAddPatient: !s.ui[vid].showAddPatient } } }));
+  };
+  makeAddVisitHandler(vid, code){
+    return (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const date = f.date.value;
+      const scr = parseFloat(f.scr.value);
+      if(!date || isNaN(scr)) return;
+      this.setState(s => {
+        const patients = s.patients.map(p => {
+          if(p.code !== code) return p;
+          const next = { ...p, visits:[...p.visits, {
+            date, scr,
+            urinalysis:f.urinalysis.value, protein:f.protein.value,
+            bp:f.bp.value, weight: parseFloat(f.weight.value) || '-',
+            medReview:f.medReview.value, recommendation:f.recommendation.value,
+            nextFollowupOverride: f.nextFollowup.value || null
+          }]};
+          return this.derivePatient(next);
+        });
+        return { patients };
+      });
+      f.reset();
+    };
+  }
+  makeAddPatientHandler(vid){
+    return (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const code = f.code.value.trim();
+      const dob = f.dob.value, artStart = f.artStart.value, baselineDate = f.baselineDate.value;
+      const baselineSCr = parseFloat(f.baselineSCr.value);
+      if(!code || !dob || !artStart || !baselineDate || isNaN(baselineSCr)) return;
+      this.setState(s => {
+        if(s.patients.some(p => p.code === code)) return s;
+        const raw = {
+          code, sex:f.sex.value, dob, artStartDate:artStart, baselineDate,
+          regimen:f.regimen.value, baselineSCr,
+          nephrotoxicDrug: f.nephrotoxic.value === 'yes',
+          dm:f.dm.checked, ht:f.ht.checked, dyslipidemia:f.dyslipidemia.checked,
+          ckd:f.ckd.checked, proteinuria:f.proteinuria.checked, visits:[]
+        };
+        const patients = [...s.patients, this.derivePatient(raw)];
+        const ui = { ...s.ui, [vid]:{ ...s.ui[vid], showAddPatient:false } };
+        return { patients, ui };
+      });
+      f.reset();
+    };
+  }
+
+  buildTrendChart(p, theme){
+    const points = [{ label:'BL', scr:p.baselineSCr, egfr:p.baselineEGFR }]
+      .concat(p.visitResults.map(v => ({ label:v.date.slice(5), scr:v.scr, egfr:v.egfr })));
+    const w = 300, h = 130, padL = 30, padR = 8, padT = 10, padB = 18;
+    const scrMax = Math.max(...points.map(pt=>pt.scr)) * 1.2 || 1;
+    const egfrMax = Math.max(...points.map(pt=>pt.egfr)) * 1.15 || 1;
+    const xStep = points.length > 1 ? (w-padL-padR)/(points.length-1) : 0;
+    const xFor = i => padL + i*xStep;
+    const yScr = v => padT + (h-padT-padB) * (1 - v/scrMax);
+    const yEgfr = v => padT + (h-padT-padB) * (1 - v/egfrMax);
+    const scrPts = points.map((pt,i) => xFor(i).toFixed(1)+','+yScr(pt.scr).toFixed(1)).join(' ');
+    const egfrPts = points.map((pt,i) => xFor(i).toFixed(1)+','+yEgfr(pt.egfr).toFixed(1)).join(' ');
+    const children = [
+      React.createElement('polyline', { key:'scrline', points:scrPts, fill:'none', stroke:theme.primary, strokeWidth:2 }),
+      React.createElement('polyline', { key:'egfrline', points:egfrPts, fill:'none', stroke:theme.textPrimary, strokeWidth:2, strokeDasharray:'4 3' })
+    ];
+    points.forEach((pt,i) => {
+      children.push(React.createElement('circle', { key:'s'+i, cx:xFor(i), cy:yScr(pt.scr), r:3, fill:theme.primary }));
+      children.push(React.createElement('circle', { key:'e'+i, cx:xFor(i), cy:yEgfr(pt.egfr), r:3, fill:theme.textPrimary }));
+      children.push(React.createElement('text', { key:'l'+i, x:xFor(i), y:h-4, fontSize:9, fill:theme.muted, textAnchor:'middle' }, pt.label));
+    });
+    return React.createElement('svg', { viewBox:'0 0 '+w+' '+h, style:{ width:'100%', height:'auto' } }, children);
+  }
+
+  buildVariant(vc, patients){
+    const ui = this.state.ui[vc.id];
+    const theme = vc.theme;
+    const today = this.todayStr();
+    const allCount = patients.length;
+    const greenCount = patients.filter(p => p.latest.light === 'green').length;
+    const yellowCount = patients.filter(p => p.latest.light === 'yellow').length;
+    const redCount = patients.filter(p => p.latest.light === 'red').length;
+    const dueToday = patients.filter(p => p.latest.nextDate === today)
+      .map(p => ({ ...p, onClick: () => this.selectPatient(vc.id, p.code) }));
+
+    let patientsList = ui.filter !== 'all' ? patients.filter(p => p.latest.light === ui.filter) : patients;
+    patientsList = patientsList.map(p => ({ ...p, onClick: () => this.selectPatient(vc.id, p.code) }));
+
+    const selected = ui.selectedCode ? patients.find(p => p.code === ui.selectedCode) : null;
+
+    const chips = [
+      { key:'all', label:'ทั้งหมด', value:'all' },
+      { key:'green', label:'Green', value:'green' },
+      { key:'yellow', label:'Yellow', value:'yellow' },
+      { key:'red', label:'Red', value:'red' }
+    ].map(c => {
+      const active = ui.filter === c.value;
+      return { ...c, bg: active ? theme.primary : 'transparent', fg: active ? '#fff' : theme.textPrimary,
+        border: active ? theme.primary : 'rgba(0,0,0,.15)', onClick: () => this.setFilter(vc.id, c.value) };
+    });
+
+    const showBack = ui.screen === 'detail';
+    const tabIsDashboard = !showBack && ui.tab === 'dashboard';
+    const tabIsPatients = !showBack && ui.tab === 'patients';
+    const tabIsSettings = !showBack && ui.tab === 'settings';
+    const showAddBtn = tabIsPatients;
+
+    let headerTitle = 'Renal Risk Monitor';
+    if(showBack) headerTitle = selected ? selected.code : '';
+    else if(tabIsDashboard) headerTitle = 'ภาพรวม';
+    else if(tabIsPatients) headerTitle = 'ผู้ป่วยทั้งหมด';
+    else if(tabIsSettings) headerTitle = 'ตั้งค่า';
+
+    return {
+      ...vc, ui, theme,
+      allCount, greenCount, yellowCount, redCount,
+      dueTodayCount: dueToday.length, dueToday, noDueToday: dueToday.length === 0,
+      patientsList, chips, selected,
+      trendChart: selected ? this.buildTrendChart(selected, theme) : null,
+      showBack, tabIsDashboard, tabIsPatients, tabIsSettings, showAddBtn,
+      isGrid: vc.layout === 'grid', isDense: vc.layout === 'dense', isSegmented: vc.layout === 'segmented',
+      headerTitle,
+      navDashboardColor: tabIsDashboard ? theme.primary : theme.muted,
+      navPatientsColor: tabIsPatients ? theme.primary : theme.muted,
+      navSettingsColor: tabIsSettings ? theme.primary : theme.muted,
+      onBack: () => this.goBack(vc.id),
+      onTabDashboard: () => this.setTab(vc.id, 'dashboard'),
+      onTabPatients: () => this.setTab(vc.id, 'patients'),
+      onTabSettings: () => this.setTab(vc.id, 'settings'),
+      onToggleAddPatient: () => this.toggleAddPatient(vc.id),
+      onAddPatientSubmit: this.makeAddPatientHandler(vc.id),
+      onAddVisitSubmit: selected ? this.makeAddVisitHandler(vc.id, selected.code) : (e)=>e.preventDefault()
+    };
+  }
+
+  renderVals(){
+    const patients = this.state.patients;
+    const variantsConfig = [
+      { id:'v1', badge:'1a', name:'Lavender · การ์ดใหญ่', layout:'grid',
+        theme:{ bg:'#f5f0f7', surface:'#ffffff', primary:'#7c5a9e', primarySoft:'#ecdcf0', textPrimary:'#2c2233', muted:'#8a7a94' } },
+      { id:'v2', badge:'1b', name:'Peach · แถวกระชับ', layout:'dense',
+        theme:{ bg:'#fbf3ec', surface:'#ffffff', primary:'#c26a3d', primarySoft:'#f7ddc0', textPrimary:'#3a2416', muted:'#93715a' } },
+      { id:'v3', badge:'1c', name:'Teal · ตัวกรองสถานะ', layout:'segmented',
+        theme:{ bg:'#eef6f5', surface:'#ffffff', primary:'#2f7d78', primarySoft:'#cfe8e5', textPrimary:'#1c3634', muted:'#5f8683' } }
+    ];
+    const variants = variantsConfig.map(vc => this.buildVariant(vc, patients));
+    return { variants };
+  }
+}
+</script>
+</body>
+</html>

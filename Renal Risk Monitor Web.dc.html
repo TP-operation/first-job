@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics="">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#eef3fa;font-family:'Sarabun',system-ui,sans-serif;color:#14213d;}
+  input,select,textarea{font-family:'Sarabun',sans-serif;}
+  a{color:#2f6fed;}
+  a:hover{color:#1f52c4;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:#c9d6ea;border-radius:4px;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;flex-direction:column;">
+
+  <div style="background:#fff3c4;color:#7a5a00;font-size:11px;text-align:center;padding:5px 10px;font-weight:600;">โหมดสาธิต — ข้อมูลผู้ป่วยทั้งหมดเป็นข้อมูลจำลอง ไม่ใช่ข้อมูลผู้ป่วยจริง</div>
+
+  <div style="background:#ffffff;border-bottom:1px solid rgba(15,23,42,.08);padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5;">
+    <div style="width:20px;height:16px;border:2px solid #2f6fed;border-radius:4px;position:relative;flex:none;"><span style="position:absolute;left:5px;top:-2px;bottom:-2px;width:2px;background:#2f6fed;"></span></div>
+    <div style="font-size:14px;font-weight:700;line-height:1.3;">Renal Function Monitoring · HIV Clinic</div>
+  </div>
+
+  <div style="flex:1;max-width:480px;width:100%;margin:0 auto;padding:16px 16px 40px;box-sizing:border-box;">
+
+    <sc-if value="{{isDashboard}}" hint-placeholder-val="{{true}}">
+      <div style="margin-bottom:18px;">
+        <div style="font-size:24px;font-weight:800;">Dashboard</div>
+        <div style="font-size:13px;color:#6b7686;margin-top:4px;">ภาพรวมการติดตามการทำงานของไตในผู้ป่วย HIV ที่รับยาต้านไวรัส</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+        <div style="background:#fff;border:1px solid rgba(15,23,42,.07);border-radius:14px;padding:14px 14px;display:flex;justify-content:space-between;align-items:flex-start;">
+          <div><div style="font-size:11px;color:#6b7686;">ผู้ป่วยทั้งหมด</div><div style="font-size:24px;font-weight:800;margin-top:6px;">{{allCount}}</div></div>
+          <div style="width:34px;height:34px;border-radius:9px;background:#dde9fd;position:relative;flex:none;">
+            <span style="position: absolute; left: 8px; top: 12px; width: 8px; height: 8px; border-radius: 50%; background: #2f6fed"></span>
+            <span style="position: absolute; right: 7px; top: 15px; width: 7px; height: 7px; border-radius: 50%; background: #7fa4f2"></span>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid rgba(15,23,42,.07);border-radius:14px;padding:14px 14px;display:flex;justify-content:space-between;align-items:flex-start;">
+          <div><div style="font-size:11px;color:#6b7686;">Low Risk (GREEN)</div><div style="font-size:24px;font-weight:800;margin-top:6px;">{{greenCount}}</div></div>
+          <div style="width:34px;height:34px;border-radius:50%;background:#e3f6ea;display:flex;align-items:center;justify-content:center;flex:none;"><span style="color: #1f7a43; font-size: 20px; font-weight: 800">✓</span></div>
+        </div>
+        <div style="background:#fff;border:1px solid rgba(15,23,42,.07);border-radius:14px;padding:14px 14px;display:flex;justify-content:space-between;align-items:flex-start;">
+          <div><div style="font-size:11px;color:#6b7686;">Moderate Risk (YELLOW)</div><div style="font-size:24px;font-weight:800;margin-top:6px;">{{yellowCount}}</div></div><div style="width:34px;height:34px;border-radius:9px;background:#fff2d6;display:flex;align-items:center;justify-content:center;flex:none;"><span style="color: #8a5a00; font-size: 25px; font-weight: 800">!</span></div>
+          
+        </div>
+        <div style="background:#fff;border:1px solid rgba(15,23,42,.07);border-radius:14px;padding:14px 14px;display:flex;justify-content:space-between;align-items:flex-start;">
+          <div><div style="font-size:11px;color:#6b7686;">High Risk (RED)</div><div style="font-size:24px;font-weight:800;margin-top:6px;">{{redCount}}</div></div>
+          <div style="width:34px;height:34px;border-radius:50%;background:#fde3e1;display:flex;align-items:center;justify-content:center;flex:none;"><span style="color: #b3261e; font-size: 25px; font-weight: 800">!</span></div>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid rgba(15,23,42,.07);border-radius:14px;padding:16px;margin-bottom:14px;">
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;">นัดติดตามวันนี้ ({{dueTodayCount}})</div>
+        <sc-for list="{{dueToday}}" as="p" hint-placeholder-count="1">
+          <div onclick="{{p.onClick}}" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid rgba(15,23,42,.06);cursor:pointer;">
+            <div>
+              <div style="font-size:14px;font-weight:700;">{{p.name}}</div>
+              <div style="font-size:12px;color:#6b7686;margin-top:2px;">HN {{p.hn}} · {{p.regimen}} · นัด {{p.latest.nextDateDisplay}}</div>
+            </div>
+            <span style="background:{{p.latest.lightMeta.bg}};color:{{p.latest.lightMeta.fg}};font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;white-space:nowrap;">● {{p.latest.lightMeta.label}}</span>
+          </div>
+        </sc-for>
+        <sc-if value="{{noDueToday}}" hint-placeholder-val="{{false}}">
+          <div style="font-size:13px;color:#6b7686;padding:8px 0;">ไม่มีผู้ป่วยที่ต้องติดตามวันนี้</div>
+        </sc-if>
+      </div>
+
+      <div style="background:#fff;border:1px solid rgba(15,23,42,.07);border-radius:14px;padding:16px;">
+        <div style="font-size:14px;font-weight:700;margin-bottom:10px;">สถานะผู้ป่วยล่าสุด</div>
+        <sc-for list="{{patients}}" as="p" hint-placeholder-count="3">
+          <div onclick="{{p.onClick}}" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid rgba(15,23,42,.06);cursor:pointer;gap:10px;">
+            <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+              <div style="width:38px;height:38px;border-radius:50%;background:#dde9fd;color:#2f6fed;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">{{p.initials}}</div>
+              <div style="min-width:0;">
+                <div style="font-size:14px;font-weight:700;">{{p.name}}</div>
+                <div style="font-size:12px;color:#6b7686;margin-top:2px;">HN {{p.hn}} · {{p.age}} ปี · {{p.sexLabel}} · {{p.regimen}}</div>
+              </div>
+            </div>
+            <span style="background:{{p.latest.lightMeta.bg}};color:{{p.latest.lightMeta.fg}};font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;white-space:nowrap;flex:none;">● {{p.latest.lightMeta.label}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isDetail}}" hint-placeholder-val="{{false}}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <button onclick="{{onBack}}" style="background:none;border:none;color:#2f6fed;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0;">← ย้อนกลับ</button>
+        <div style="display:flex;gap:8px;">
+          <button onclick="{{onExportCsv}}" style="background:#fff;border:1px solid rgba(15,23,42,.12);color:#14213d;font-size:13px;font-weight:600;padding:8px 14px;border-radius:10px;cursor:pointer;">Excel</button>
+          <button onclick="{{onExportPdf}}" style="background:#2f6fed;border:none;color:#fff;font-size:13px;font-weight:600;padding:8px 14px;border-radius:10px;cursor:pointer;">PDF</button>
+          <button onclick="{{onDeletePatient}}" style="background:#fde3e1;border:none;color:#b3261e;font-size:13px;font-weight:700;padding:8px 12px;border-radius:10px;cursor:pointer;">ลบ</button>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid rgba(15,23,42,.07);border-radius:14px;padding:16px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div style="width:46px;height:46px;border-radius:50%;background:#dde9fd;color:#2f6fed;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;">{{selected.initials}}</div>
+          <div style="flex:1;min-width:160px;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <div style="font-size:16px;font-weight:800;">{{selected.name}}</div>
+              <span style="background:{{selected.latest.lightMeta.bg}};color:{{selected.latest.lightMeta.fg}};font-size:12px;font-weight:700;padding:4px 11px;border-radius:999px;">● {{selected.latest.lightMeta.label}}</span>
+            </div>
+            <div style="font-size:13px;color:#6b7686;margin-top:4px;">HN {{selected.hn}} · {{selected.age}} ปี · {{selected.sexLabel}}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;">
+          <div><div style="font-size:11px;color:#6b7686;">สูตรยาต้านไวรัส</div><div style="font-size:14px;font-weight:700;margin-top:4px;background:#f1f5fc;display:inline-block;padding:4px 10px;border-radius:8px;">{{selected.regimen}}</div></div>
+          <div><div style="font-size:11px;color:#6b7686;">เริ่มยาต้านไวรัส</div><div style="font-size:14px;font-weight:700;margin-top:4px;">{{selected.artStartDisplay}}</div></div>
+          <div><div style="font-size:11px;color:#6b7686;">SCr เริ่มต้น</div><div style="font-size:14px;font-weight:700;margin-top:4px;">{{selected.baselineSCr}} mg/dL</div></div>
+          <div><div style="font-size:11px;color:#6b7686;">eGFR เริ่มต้น</div><div style="font-size:14px;font-weight:700;margin-top:4px;">{{selected.baselineEGFR}}</div></div>
+        </div>
+      </div>
+
+      <div style="background:{{selected.latest.lightMeta.bg}};border:1px solid {{selected.latest.lightMeta.fg}}22;border-radius:14px;padding:14px 16px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="background:#fff;color:{{selected.latest.lightMeta.fg}};font-size:12px;font-weight:700;padding:4px 11px;border-radius:999px;">● {{selected.latest.lightMeta.label}}</span>
+          <div style="font-size:14px;font-weight:700;color:{{selected.latest.lightMeta.fg}};">การตรวจล่าสุด — {{selected.latest.dateDisplay}}</div>
+        </div>
+        <div style="font-size:13px;color:{{selected.latest.lightMeta.fg}};margin-top:8px;">• {{selected.latest.summaryLine}}</div>
+
+        <div style="background:#fff;border-radius:12px;padding:14px 16px;margin-top:14px;">
+          <div style="font-size:13px;font-weight:700;color:#14213d;">คำแนะนำทางคลินิก</div>
+          <div style="font-size:12px;color:#6b7686;margin-top:2px;margin-bottom:8px;">พบการเปลี่ยนแปลงของค่า SCr หรือ eGFR</div>
+          <sc-for list="{{selected.latest.adviceBullets}}" as="b" hint-placeholder-count="2">
+            <div style="font-size:13px;color:#14213d;margin-top:4px;">• {{b}}</div>
+          </sc-for>
+          <div style="background:#f7f9fd;border-radius:10px;padding:12px 14px;margin-top:12px;">
+            <div style="font-size:12px;font-weight:700;color:#14213d;">คำแนะนำเฉพาะสูตร {{selected.regimen}}</div>
+            <div style="font-size:12px;color:#4a5568;margin-top:4px;line-height:1.6;">{{selected.regimenAdvice}}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid rgba(15,23,42,.07);border-radius:14px;padding:14px 16px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div><div style="font-size:13px;font-weight:700;">แนวโน้ม SCr</div><div style="font-size:11px;color:#6b7686;">mg/dL</div></div>
+          <div style="font-size:14px;font-weight:800;color:{{selected.scrSeries.deltaColor}};white-space:nowrap;">{{selected.scrSeries.deltaArrow}} {{selected.scrSeries.deltaText}}</div>
+        </div>
+        <div style="position:relative;height:150px;margin:18px 6px 26px 36px;overflow:visible;">
+          <sc-for list="{{selected.scrSeries.ticks}}" as="t" hint-placeholder-count="3">
+            <div style="position:absolute;left:0;right:0;top:{{t.yPct}}%;border-top:1px dashed rgba(15,23,42,.12);"></div>
+            <div style="position:absolute;left:-8px;top:{{t.yPct}}%;transform:translate(-100%,-50%);font-size:10px;color:#6b7686;white-space:nowrap;">{{t.value}}</div>
+          </sc-for>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;">
+            <polyline points="{{selected.scrSeries.linePoints}}" fill="none" stroke="#e0453a" stroke-width="1.6" vector-effect="non-scaling-stroke"></polyline>
+          </svg>
+          <sc-for list="{{selected.scrSeries.points}}" as="p" hint-placeholder-count="3">
+            <div onmouseenter="{{p.onEnter}}" onmouseleave="{{p.onLeave}}" style="position: absolute; left: {{p.xPct}}%; top: {{p.yPct}}%; transform: translate(-50%,-50%); width: 7px; height: 7px; border-radius: 30px; background: #fff; border: 2px solid #e0453a; cursor: pointer; z-index: 2"></div>
+            <div style="position:absolute;left:{{p.xPct}}%;top:100%;margin-top:8px;transform:translate(-50%,0);font-size:10px;color:#6b7686;white-space:nowrap;">{{p.label}}</div>
+          </sc-for>
+          <sc-if value="{{selected.scrSeries.hoverActive}}" hint-placeholder-val="{{false}}">
+            <div style="position:absolute;left:{{selected.scrSeries.hoverPoint.xPct}}%;top:{{selected.scrSeries.hoverPoint.yPct}}%;transform:translate(-50%,-130%);background:#fff;border:1px solid rgba(15,23,42,.12);border-radius:10px;padding:8px 12px;box-shadow:0 6px 16px rgba(15,23,42,.12);white-space:nowrap;pointer-events:none;z-index:3;">
+              <div style="font-size:11px;color:#6b7686;">{{selected.scrSeries.hoverPoint.label}}</div>
+              <div style="font-size:13px;font-weight:700;color:#e0453a;">SCr {{selected.scrSeries.hoverPoint.value}}</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid rgba(15,23,42,.07);border-radius:14px;padding:14px 16px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div><div style="font-size:13px;font-weight:700;">แนวโน้ม eGFR (CKD-EPI 2021)</div><div style="font-size:11px;color:#6b7686;">mL/min/1.73m²</div></div>
+          <div style="font-size:14px;font-weight:800;color:#2f6fed;white-space:nowrap;">{{selected.egfrSeries.deltaArrow}} {{selected.egfrSeries.deltaText}}</div>
+        </div>
+        <div style="position:relative;height:150px;margin:18px 6px 26px 36px;overflow:visible;">
+          <sc-for list="{{selected.egfrSeries.ticks}}" as="t" hint-placeholder-count="3">
+            <div style="position:absolute;left:0;right:0;top:{{t.yPct}}%;border-top:1px dashed rgba(15,23,42,.12);"></div>
+            <div style="position:absolute;left:-8px;top:{{t.yPct}}%;transform:translate(-100%,-50%);font-size:10px;color:#6b7686;white-space:nowrap;">{{t.value}}</div>
+          </sc-for>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;">
+            <polyline points="{{selected.egfrSeries.linePoints}}" fill="none" stroke="#2f6fed" stroke-width="1.6" vector-effect="non-scaling-stroke"></polyline>
+          </svg>
+          <sc-for list="{{selected.egfrSeries.points}}" as="p" hint-placeholder-count="3">
+            <div onmouseenter="{{p.onEnter}}" onmouseleave="{{p.onLeave}}" style="position: absolute; left: {{p.xPct}}%; top: {{p.yPct}}%; transform: translate(-50%,-50%); width: 7px; height: 7px; border-radius: 50%; background: #fff; border: 2px solid #2f6fed; cursor: pointer; z-index: 2"></div>
+            <div style="position:absolute;left:{{p.xPct}}%;top:100%;margin-top:8px;transform:translate(-50%,0);font-size:10px;color:#6b7686;white-space:nowrap;">{{p.label}}</div>
+          </sc-for>
+          <sc-if value="{{selected.egfrSeries.hoverActive}}" hint-placeholder-val="{{false}}">
+            <div style="position:absolute;left:{{selected.egfrSeries.hoverPoint.xPct}}%;top:{{selected.egfrSeries.hoverPoint.yPct}}%;transform:translate(-50%,-130%);background:#fff;border:1px solid rgba(15,23,42,.12);border-radius:10px;padding:8px 12px;box-shadow:0 6px 16px rgba(15,23,42,.12);white-space:nowrap;pointer-events:none;z-index:3;">
+              <div style="font-size:11px;color:#6b7686;">{{selected.egfrSeries.hoverPoint.label}}</div>
+              <div style="font-size:13px;font-weight:700;color:#2f6fed;">eGFR {{selected.egfrSeries.hoverPoint.value}}</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;">
+        <button onclick="{{onTabHistory}}" style="background:{{historyTabBg}};color:{{historyTabFg}};border:none;font-size:12px;font-weight:700;padding:9px 14px;border-radius:10px;cursor:pointer;white-space:nowrap;flex:none;">ประวัติการตรวจ</button>
+        <button onclick="{{onTabAssessment}}" style="background:{{assessmentTabBg}};color:{{assessmentTabFg}};border:none;font-size:12px;font-weight:700;padding:9px 14px;border-radius:10px;cursor:pointer;white-space:nowrap;flex:none;">แบบประเมินของเภสัชกร</button>
+      </div>
+
+      <sc-if value="{{isHistoryTab}}" hint-placeholder-val="{{true}}">
+        <div style="background:#fff;border:1px solid rgba(15,23,42,.07);border-radius:14px;padding:16px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div style="font-size:14px;font-weight:700;">การตรวจติดตามการทำงานของไต</div>
+            <button onclick="{{onToggleAddVisit}}" style="background:#2f6fed;color:#fff;border:none;font-size:13px;font-weight:700;padding:9px 16px;border-radius:10px;cursor:pointer;">+ เพิ่มการตรวจ</button>
+          </div>
+
+          <sc-if value="{{showAddVisit}}" hint-placeholder-val="{{false}}">
+            <form onsubmit="{{onAddVisitSubmit}}" style="background:#f7f9fd;border-radius:12px;padding:16px;margin-bottom:16px;">
+              <div style="display:grid;grid-template-columns:1fr;gap:10px;">
+                <div><label style="font-size:11px;color:#6b7686;">วันที่ตรวจ</label><input name="date" type="date" required="" style="width:100%;padding:9px;border:1px solid rgba(15,23,42,.14);border-radius:8px;margin-top:3px;font-size:13px;box-sizing:border-box;"></div>
+                <div><label style="font-size:11px;color:#6b7686;">Serum Creatinine (mg/dL)</label><input name="scr" type="number" step="0.01" required="" style="width:100%;padding:9px;border:1px solid rgba(15,23,42,.14);border-radius:8px;margin-top:3px;font-size:13px;box-sizing:border-box;"></div>
+                <div><label style="font-size:11px;color:#6b7686;">Urinalysis</label><select name="urinalysis" style="width:100%;padding:9px;border:1px solid rgba(15,23,42,.14);border-radius:8px;margin-top:3px;font-size:13px;box-sizing:border-box;"><option value="Normal">Normal</option><option value="Abnormal">Abnormal</option></select></div>
+                <div><label style="font-size:11px;color:#6b7686;">Urine Protein</label><select name="protein" style="width:100%;padding:9px;border:1px solid rgba(15,23,42,.14);border-radius:8px;margin-top:3px;font-size:13px;box-sizing:border-box;"><option value="negative">Negative</option><option value="trace">Trace</option><option value="1+">1+</option><option value="2+">2+</option><option value="3+">3+</option></select></div>
+                <div><label style="font-size:11px;color:#6b7686;">ความดัน</label><input name="bp" type="text" placeholder="120/80" style="width:100%;padding:9px;border:1px solid rgba(15,23,42,.14);border-radius:8px;margin-top:3px;font-size:13px;box-sizing:border-box;"></div>
+                <div><label style="font-size:11px;color:#6b7686;">น้ำหนัก (kg)</label><input name="weight" type="number" step="0.1" style="width:100%;padding:9px;border:1px solid rgba(15,23,42,.14);border-radius:8px;margin-top:3px;font-size:13px;box-sizing:border-box;"></div>
+              </div>
+              <button type="submit" style="margin-top:12px;background:#2f6fed;color:#fff;border:none;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">บันทึกและคำนวณ</button>
+            </form>
+          </sc-if>
+
+          <div style="overflow-x:auto;">
+            <table style="border-collapse:collapse;width:100%;min-width:640px;font-size:13px;">
+              <thead>
+                <tr style="text-align:left;color:#6b7686;">
+                  <th style="padding:8px 10px;font-weight:600;">วันที่</th>
+                  <th style="padding:8px 10px;font-weight:600;">SCr</th>
+                  <th style="padding:8px 10px;font-weight:600;">eGFR</th>
+                  <th style="padding:8px 10px;font-weight:600;">โปรตีนในปัสสาวะ</th>
+                  <th style="padding:8px 10px;font-weight:600;">ความดัน</th>
+                  <th style="padding:8px 10px;font-weight:600;">น้ำหนัก</th>
+                  <th style="padding:8px 10px;font-weight:600;">สถานะ</th>
+                  <th style="padding:8px 10px;font-weight:600;">นัดครั้งถัดไป</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{selected.visitResultsDesc}}" as="visit" hint-placeholder-count="3">
+                  <tr style="border-top:1px solid rgba(15,23,42,.06);">
+                    <td style="padding:10px;">{{visit.dateDisplay}}</td>
+                    <td style="padding:10px;">{{visit.scr}}</td>
+                    <td style="padding:10px;">{{visit.egfr}}</td>
+                    <td style="padding:10px;">{{visit.protein}}</td>
+                    <td style="padding:10px;">{{visit.bp}}</td>
+                    <td style="padding:10px;">{{visit.weight}}</td>
+                    <td style="padding:10px;"><span style="background:{{visit.lightMeta.bg}};color:{{visit.lightMeta.fg}};font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;white-space:nowrap;">● {{visit.lightMeta.label}}</span></td>
+                    <td style="padding:10px;white-space:nowrap;">{{visit.nextDateDisplay}}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isAssessmentTab}}" hint-placeholder-val="{{false}}">
+        <div style="background:#fff;border:1px solid rgba(15,23,42,.07);border-radius:14px;padding:16px;margin-bottom:20px;">
+          <div style="font-size:14px;font-weight:700;">แบบประเมินของเภสัชกร — {{selected.latest.dateDisplay}}</div>
+          <div style="font-size:12px;color:#6b7686;margin-top:2px;margin-bottom:14px;">บันทึกอ้างอิงจากการตรวจครั้งล่าสุด</div>
+
+          <label style="font-size:12px;font-weight:600;color:#14213d;">ทบทวนรายการยา</label>
+          <textarea placeholder="สูตรยาต้านไวรัสปัจจุบัน ยาอื่นๆ ที่ใช้ร่วม ปฏิกิริยาระหว่างยา ความเหมาะสมของขนาดยา..." style="width:100%;padding:11px;border:1px solid rgba(15,23,42,.14);border-radius:10px;margin-top:5px;margin-bottom:14px;font-size:13px;min-height:60px;box-sizing:border-box;resize:vertical;"></textarea>
+
+          <label style="font-size:12px;font-weight:600;color:#14213d;">ยาที่มีผลต่อไต</label>
+          <textarea placeholder="NSAIDs, aminoglycosides, สารทึบรังสี, ข้อกังวลเรื่อง TDF..." style="width:100%;padding:11px;border:1px solid rgba(15,23,42,.14);border-radius:10px;margin-top:5px;margin-bottom:14px;font-size:13px;min-height:60px;box-sizing:border-box;resize:vertical;"></textarea>
+
+          <label style="font-size:12px;font-weight:600;color:#14213d;">ความร่วมมือในการใช้ยา</label>
+          <select style="width:100%;padding:11px;border:1px solid rgba(15,23,42,.14);border-radius:10px;margin-top:5px;margin-bottom:14px;font-size:13px;box-sizing:border-box;">
+            <option value="">เลือกระดับความร่วมมือ</option>
+            <option value="high">สูง</option>
+            <option value="medium">ปานกลาง</option>
+            <option value="low">ต่ำ</option>
+          </select>
+
+          <label style="font-size:12px;font-weight:600;color:#14213d;">วันนัดครั้งถัดไป</label>
+          <input type="date" value="{{selected.latest.nextDate}}" readonly="" style="width:100%;padding:11px;border:1px solid rgba(15,23,42,.14);border-radius:10px;margin-top:5px;margin-bottom:14px;font-size:13px;box-sizing:border-box;">
+
+          <label style="font-size:12px;font-weight:600;color:#14213d;">การประเมินทางคลินิก</label>
+          <textarea placeholder="การแปลผลแนวโน้มการทำงานของไต สาเหตุที่เป็นไปได้..." style="width:100%;padding:11px;border:1px solid rgba(15,23,42,.14);border-radius:10px;margin-top:5px;margin-bottom:14px;font-size:13px;min-height:60px;box-sizing:border-box;resize:vertical;"></textarea>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <label style="font-size:12px;font-weight:600;color:#14213d;">ข้อแนะนำ</label>
+            <button onclick="{{onQuickFillAdvice}}" style="background:{{selected.latest.lightMeta.bg}};color:{{selected.latest.lightMeta.fg}};border:none;font-size:11px;font-weight:700;padding:5px 10px;border-radius:8px;cursor:pointer;">ใช้คำแนะนำสำเร็จรูป ({{selected.latest.light}})</button>
+          </div>
+          <textarea value="{{assessmentText}}" onchange="{{onAssessmentTextChange}}" placeholder="ใช้ยาต่อ / ปรับขนาด / เปลี่ยนสูตรยา แผนติดตาม..." style="width:100%;padding:11px;border:1px solid rgba(15,23,42,.14);border-radius:10px;margin-top:5px;font-size:13px;min-height:90px;box-sizing:border-box;resize:vertical;"></textarea>
+
+          <button onclick="{{onSaveAssessment}}" style="margin-top:16px;background:#2f6fed;color:#fff;border:none;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">บันทึกแบบประเมิน</button>
+          <sc-if value="{{assessmentSaved}}" hint-placeholder-val="{{false}}">
+            <span style="margin-left:10px;font-size:12px;color:#1f7a43;font-weight:600;">✓ บันทึกแล้ว (demo)</span>
+          </sc-if>
+        </div>
+      </sc-if>
+
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.CONFIG = { CONSECUTIVE_FOR_RED: 3 };
+    this.months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    const raw = [
+      { code:'PT001', name:'Somchai Thongdee', hn:'HN-000123', sex:'M', dob:'1984-03-10',
+        artStartDate:'2025-07-14', baselineDate:'2026-01-15', regimen:'TLD', baselineSCr:0.95,
+        visits:[
+          { date:'2026-04-15', scr:1.00, urinalysis:'Normal', protein:'trace', bp:'124/80', weight:68.5 },
+          { date:'2026-07-07', scr:1.05, urinalysis:'Normal', protein:'negative', bp:'120/76', weight:69, nextFollowupOverride:'2026-07-14' }
+        ]},
+      { code:'PT002', name:'Aree Suksawat', hn:'HN-000456', sex:'F', dob:'1971-02-20',
+        artStartDate:'2019-05-01', baselineDate:'2025-11-01', regimen:'Kocitaf', baselineSCr:0.70,
+        visits:[
+          { date:'2026-07-05', scr:1.35, urinalysis:'Abnormal', protein:'2+', bp:'148/92', weight:57, nextFollowupOverride:'2026-07-14' }
+        ]},
+      { code:'PT003', name:'Prasert Chai', hn:'HN-000789', sex:'M', dob:'1966-08-02',
+        artStartDate:'2016-03-10', baselineDate:'2025-09-01', regimen:'TLD', baselineSCr:1.10,
+        visits:[
+          { date:'2026-06-20', scr:1.95, urinalysis:'Abnormal', protein:'2+', bp:'152/96', weight:64 }
+        ]}
+    ];
+
+    this.state = {
+      patients: raw.map(p => this.derivePatient(p)),
+      screen: 'dashboard',
+      selectedCode: null,
+      detailTab: 'history',
+      showAddVisit: false,
+      hoverScrIdx: null,
+      hoverEgfrIdx: null,
+      assessmentText: '',
+      assessmentSaved: false
+    };
+  }
+
+  todayStr(){ return new Date().toISOString().slice(0,10); }
+  fmtDate(d){
+    const dt = new Date(d);
+    return dt.getDate()+' '+this.months[dt.getMonth()]+' '+dt.getFullYear();
+  }
+  calcAge(dob, refDateStr){
+    const dobD = new Date(dob), ref = new Date(refDateStr);
+    let age = ref.getFullYear() - dobD.getFullYear();
+    const m = ref.getMonth() - dobD.getMonth();
+    if(m < 0 || (m === 0 && ref.getDate() < dobD.getDate())) age--;
+    return age;
+  }
+  calcEGFR(scr, age, sex){
+    const kappa = sex === 'F' ? 0.7 : 0.9;
+    const alpha = sex === 'F' ? -0.241 : -0.302;
+    const ratio = scr / kappa;
+    const minPart = Math.pow(Math.min(ratio,1), alpha);
+    const maxPart = Math.pow(Math.max(ratio,1), -1.2);
+    let egfr = 142 * minPart * maxPart * Math.pow(0.9938, age);
+    if(sex === 'F') egfr *= 1.012;
+    return Math.round(egfr*10)/10;
+  }
+  nextFollowupDate(baselineDate, visitIndex){
+    const d = new Date(baselineDate);
+    const sched = [30,90,180];
+    d.setDate(d.getDate() + sched[Math.min(visitIndex, sched.length-1)]);
+    return d.toISOString().slice(0,10);
+  }
+  classifyTrafficLight(baselineSCr, baselineEGFR, visitScr, visitEgfr, consecutiveDeltaUp, consecutiveProteinuria){
+    const deltaScr = Math.round((visitScr - baselineSCr)*100)/100;
+    const pctEgfrChange = Math.round(((baselineEGFR - visitEgfr)/baselineEGFR)*1000)/10;
+    if(pctEgfrChange > 25 || consecutiveDeltaUp >= this.CONFIG.CONSECUTIVE_FOR_RED || consecutiveProteinuria >= this.CONFIG.CONSECUTIVE_FOR_RED){
+      return { light:'red', deltaScr, pctEgfrChange };
+    }
+    if(deltaScr > 0.3 || (pctEgfrChange >= 10 && pctEgfrChange <= 25)){
+      return { light:'yellow', deltaScr, pctEgfrChange };
+    }
+    return { light:'green', deltaScr, pctEgfrChange };
+  }
+  mapLight(light){
+    const table = {
+      green:{ bg:'#e3f6ea', fg:'#1f7a43', label:'Low Risk' },
+      yellow:{ bg:'#fff2d6', fg:'#8a5a00', label:'Moderate Risk' },
+      red:{ bg:'#fde3e1', fg:'#b3261e', label:'High Risk' }
+    };
+    return table[light] || table.green;
+  }
+  adviceFor(light){
+    const table = {
+      green:['ค่า SCr และ eGFR อยู่ในเกณฑ์ปกติ','ติดตามตามนัดถัดไปตามปกติ'],
+      yellow:['แนะนำตรวจซ้ำภายใน 2-4 สัปดาห์','ทบทวนยาที่อาจมีผลต่อการทำงานของไต','ประเมินภาวะขาดน้ำและโรคร่วม'],
+      red:['แจ้งแพทย์ผู้ดูแลทันที','พิจารณาปรึกษาแพทย์โรคไต (Nephrology)','ทบทวนและปรับยาที่อาจมีผลต่อไตโดยด่วน']
+    };
+    return table[light] || table.green;
+  }
+  regimenAdviceFor(regimen, light){
+    if(regimen === 'TLD'){
+      return 'ผู้ป่วยที่ได้รับ TLD: หากค่า SCr เพิ่มขึ้นมากกว่า 0.3 mg/dL หรือ eGFR ลดลงมากกว่า 25% ให้ตรวจซ้ำภายใน 2-4 สัปดาห์ ทบทวนยาที่อาจมีผลต่อไต และแจ้งแพทย์ผู้ดูแล';
+    }
+    return 'ผู้ป่วยที่ได้รับ Kocitaf: ความเสี่ยงต่อไตโดยรวมต่ำกว่าสูตรที่มี TDF แต่ยังควรติดตาม SCr/eGFR ตามตารางนัดที่กำหนดอย่างสม่ำเสมอ';
+  }
+  quickAdviceText(light){
+    const table = {
+      green:'ใช้ยาต่อในขนาดเดิม ติดตามตามนัดปกติ ไม่ต้องปรับแผนการรักษา',
+      yellow:'ใช้ยาต่อ แต่นัดตรวจซ้ำภายใน 2-4 สัปดาห์ ทบทวนยาที่มีผลต่อไต และเฝ้าระวังอาการขาดน้ำ',
+      red:'แจ้งแพทย์ผู้ดูแลทันที พิจารณาปรึกษา Nephrology และทบทวนการปรับ/เปลี่ยนสูตรยาโดยด่วน'
+    };
+    return table[light] || table.green;
+  }
+  derivePatient(p){
+    p.age = this.calcAge(p.dob, this.todayStr());
+    p.baselineEGFR = this.calcEGFR(p.baselineSCr, this.calcAge(p.dob, p.baselineDate), p.sex);
+    p.sexLabel = p.sex === 'F' ? 'หญิง' : 'ชาย';
+    p.initials = p.name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    p.artStartDisplay = this.fmtDate(p.artStartDate);
+
+    let consecutiveDeltaUp = 0, consecutiveProteinuria = 0;
+    p.visitResults = p.visits.map((v,i) => {
+      const visitAge = this.calcAge(p.dob, v.date);
+      const egfr = this.calcEGFR(v.scr, visitAge, p.sex);
+      if(v.scr > p.baselineSCr) consecutiveDeltaUp++; else consecutiveDeltaUp = 0;
+      if(v.protein === '2+' || v.protein === '3+' || v.protein === 'positive') consecutiveProteinuria++; else consecutiveProteinuria = 0;
+      const tl = this.classifyTrafficLight(p.baselineSCr, p.baselineEGFR, v.scr, egfr, consecutiveDeltaUp, consecutiveProteinuria);
+      const nextDate = v.nextFollowupOverride || this.nextFollowupDate(p.baselineDate, i+1);
+      const lightMeta = this.mapLight(tl.light);
+      return {
+        date:v.date, dateDisplay:this.fmtDate(v.date), scr:v.scr, egfr,
+        deltaScr:tl.deltaScr, pctEgfrChange:tl.pctEgfrChange, light:tl.light, lightMeta,
+        urinalysis:v.urinalysis||'-', protein:v.protein||'-', bp:v.bp||'-', weight:v.weight||'-',
+        nextDate, nextDateDisplay: this.fmtDate(nextDate),
+        summaryLine: tl.light === 'green' ? 'ไม่พบการเปลี่ยนแปลงที่มีนัยสำคัญจากค่าเริ่มต้น' : 'eGFR เปลี่ยนแปลง '+tl.pctEgfrChange+'% จากค่าเริ่มต้น (ΔSCr '+(tl.deltaScr>0?'+':'')+tl.deltaScr+')',
+        adviceBullets: this.adviceFor(tl.light)
+      };
+    });
+
+    p.visitResultsDesc = p.visitResults.slice().reverse();
+    p.latest = p.visitResults.length ? p.visitResults[p.visitResults.length-1] : {
+      light:'green', lightMeta:this.mapLight('green'), dateDisplay:'-', nextDate:this.nextFollowupDate(p.baselineDate,0),
+      nextDateDisplay:this.fmtDate(this.nextFollowupDate(p.baselineDate,0)),
+      summaryLine:'ยังไม่มีการติดตาม', adviceBullets:this.adviceFor('green')
+    };
+    p.latest.nextDateDisplay = p.latest.nextDateDisplay || this.fmtDate(p.latest.nextDate);
+    p.regimenAdvice = this.regimenAdviceFor(p.regimen, p.latest.light);
+    return p;
+  }
+
+  goDetail = (code) => this.setState({ screen:'detail', selectedCode:code, detailTab:'history', showAddVisit:false, hoverScrIdx:null, hoverEgfrIdx:null, assessmentText:'', assessmentSaved:false });
+  goBack = () => this.setState({ screen:'dashboard' });
+  setTab = (tab) => this.setState({ detailTab: tab });
+  toggleAddVisit = () => this.setState(s => ({ showAddVisit: !s.showAddVisit }));
+  setHover(key, idx){
+    if(key === 'scr') this.setState({ hoverScrIdx: idx });
+    else this.setState({ hoverEgfrIdx: idx });
+  }
+  addVisitSubmit = (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const date = f.date.value, scr = parseFloat(f.scr.value);
+    if(!date || isNaN(scr)) return;
+    const code = this.state.selectedCode;
+    this.setState(s => ({
+      patients: s.patients.map(p => {
+        if(p.code !== code) return p;
+        const next = { ...p, visits:[...p.visits, {
+          date, scr, urinalysis:f.urinalysis.value, protein:f.protein.value,
+          bp:f.bp.value, weight: parseFloat(f.weight.value) || '-'
+        }]};
+        return this.derivePatient(next);
+      }),
+      showAddVisit: false
+    }));
+    f.reset();
+  };
+  exportCsv = () => {
+    const p = this.state.patients.find(x => x.code === this.state.selectedCode);
+    if(!p) return;
+    const headers = ['วันที่','SCr','eGFR','โปรตีนในปัสสาวะ','ความดัน','น้ำหนัก','สถานะ','นัดครั้งถัดไป'];
+    const rows = p.visitResults.map(v => [v.dateDisplay, v.scr, v.egfr, v.protein, v.bp, v.weight, v.lightMeta.label, v.nextDateDisplay]);
+    const csv = [headers, ...rows].map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = p.code+'_renal_monitoring.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+  exportPdf = () => window.print();
+  deletePatient = () => {
+    if(!window.confirm('ลบข้อมูลผู้ป่วยนี้ (demo)?')) return;
+    const code = this.state.selectedCode;
+    this.setState(s => ({ patients: s.patients.filter(p => p.code !== code), screen:'dashboard' }));
+  };
+  quickFillAdvice = () => {
+    const p = this.state.patients.find(x => x.code === this.state.selectedCode);
+    if(!p) return;
+    this.setState({ assessmentText: this.quickAdviceText(p.latest.light) });
+  };
+  assessmentTextChange = (e) => this.setState({ assessmentText: e.target.value });
+  saveAssessment = () => {
+    this.setState({ assessmentSaved: true });
+    setTimeout(() => this.setState({ assessmentSaved:false }), 2000);
+  };
+
+  buildSeries(patient, key, hoverIdx){
+    const raw = [{ date:patient.baselineDate, value: key==='scr' ? patient.baselineSCr : patient.baselineEGFR }]
+      .concat(patient.visitResults.map(v => ({ date:v.date, value: key==='scr' ? v.scr : v.egfr })));
+    const values = raw.map(r => r.value);
+    const min = Math.min(...values), max = Math.max(...values);
+    const pad = (max - min) * 0.2 || (max * 0.05) || 1;
+    const scaleMin = min - pad, scaleMax = max + pad;
+    const n = raw.length;
+    const points = raw.map((r,i) => {
+      const xPct = n > 1 ? (i/(n-1))*100 : 50;
+      const yPct = scaleMax > scaleMin ? 100 - ((r.value - scaleMin)/(scaleMax - scaleMin))*100 : 50;
+      return {
+        idx:i, xPct, yPct, value:r.value, label:this.fmtDate(r.date),
+        onEnter: () => this.setHover(key, i), onLeave: () => this.setHover(key, null)
+      };
+    });
+    const linePoints = points.map(p => p.xPct.toFixed(2)+','+p.yPct.toFixed(2)).join(' ');
+    const tickVals = [scaleMax, (scaleMax+scaleMin)/2, scaleMin];
+    const ticks = tickVals.map(v => ({
+      value: Math.round(v*10)/10,
+      yPct: scaleMax > scaleMin ? 100 - ((v - scaleMin)/(scaleMax - scaleMin))*100 : 50
+    }));
+    const delta = Math.round((values[values.length-1] - values[0])*100)/100;
+    const hoverPoint = (hoverIdx !== null && hoverIdx !== undefined) ? points[hoverIdx] : null;
+    return {
+      points, linePoints, ticks, delta,
+      deltaText:(delta>0?'+':'')+delta,
+      deltaArrow: delta>=0 ? '↗' : '↘',
+      deltaColor: key==='scr' ? (delta>0?'#e0453a':'#1f7a43') : '#2f6fed',
+      hoverActive: !!hoverPoint, hoverPoint
+    };
+  }
+
+  renderVals(){
+    const patients = this.state.patients;
+    const today = this.todayStr();
+    const isDashboard = this.state.screen === 'dashboard';
+    const isDetail = this.state.screen === 'detail';
+
+    const patientsWithClick = patients.map(p => ({ ...p, onClick: () => this.goDetail(p.code) }));
+    const dueToday = patientsWithClick.filter(p => p.latest.nextDate === today);
+    const selectedRaw = isDetail ? patients.find(p => p.code === this.state.selectedCode) : null;
+    const selected = selectedRaw ? {
+      ...selectedRaw,
+      scrSeries: this.buildSeries(selectedRaw, 'scr', this.state.hoverScrIdx),
+      egfrSeries: this.buildSeries(selectedRaw, 'egfr', this.state.hoverEgfrIdx)
+    } : null;
+
+    const isHistoryTab = this.state.detailTab === 'history';
+    const isAssessmentTab = this.state.detailTab === 'assessment';
+
+    return {
+      isDashboard, isDetail,
+      allCount: patients.length,
+      greenCount: patients.filter(p => p.latest.light === 'green').length,
+      yellowCount: patients.filter(p => p.latest.light === 'yellow').length,
+      redCount: patients.filter(p => p.latest.light === 'red').length,
+      dueTodayCount: dueToday.length, dueToday, noDueToday: dueToday.length === 0,
+      patients: patientsWithClick,
+      selected,
+      onBack: this.goBack,
+      onExportCsv: this.exportCsv, onExportPdf: this.exportPdf, onDeletePatient: this.deletePatient,
+      isHistoryTab, isAssessmentTab,
+      historyTabBg: isHistoryTab ? '#2f6fed' : '#fff', historyTabFg: isHistoryTab ? '#fff' : '#14213d',
+      assessmentTabBg: isAssessmentTab ? '#2f6fed' : '#fff', assessmentTabFg: isAssessmentTab ? '#fff' : '#14213d',
+      onTabHistory: () => this.setTab('history'), onTabAssessment: () => this.setTab('assessment'),
+      showAddVisit: this.state.showAddVisit, onToggleAddVisit: this.toggleAddVisit, onAddVisitSubmit: this.addVisitSubmit,
+      assessmentText: this.state.assessmentText, onAssessmentTextChange: this.assessmentTextChange,
+      onQuickFillAdvice: this.quickFillAdvice, onSaveAssessment: this.saveAssessment,
+      assessmentSaved: this.state.assessmentSaved
+    };
+  }
+}
+</script>
+</body>
+</html>
